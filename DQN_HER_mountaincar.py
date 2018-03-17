@@ -270,6 +270,7 @@ class DQN_Agent():
 					nextstate, reward, is_terminal, _ = self.env.step(curr_action)
 					# self.replay_mem.append([curr_state,curr_action,reward,nextstate,is_terminal])
 					episode_experience.append([curr_state,curr_action,reward,nextstate,self.main_goal,is_terminal])
+					self.replay_mem.append([np.append(curr_state,self.main_goal),curr_action,reward,np.append(nextstate,self.main_goal),is_terminal])
 
 					curr_reward += pow(self.discount_factor,curr_iters)*reward
 					if(is_terminal):
