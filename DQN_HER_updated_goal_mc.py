@@ -292,7 +292,7 @@ class DQN_Agent():
 						# self.main_goal = np.array([0.5])	
 						break
 
-					self.replay_mem.sample_batch()
+					self.replay_mem.sample_batch(50)
 					
 					input_state = np.zeros(shape=[len(self.replay_mem.batch),self.feature_size*2])
 					truth = np.zeros(shape=[len(self.replay_mem.batch),self.action_size])
