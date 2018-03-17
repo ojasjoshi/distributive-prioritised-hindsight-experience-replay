@@ -458,8 +458,6 @@ class DQN_Agent():
 				state = self.env.reset()
 			else:
 				state = nextstate
-				# self.main_goal = np.array([0.5,round(random.uniform(0.07,-0.07),2)])
-				self.main_goal = np.array([0.5])
 			action = np.random.randint(self.action_size)
 
 
