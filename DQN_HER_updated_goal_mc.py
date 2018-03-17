@@ -294,7 +294,7 @@ class DQN_Agent():
 
 					self.replay_mem.sample_batch(50)
 					
-					input_state = np.zeros(shape=[len(self.replay_mem.batch),self.feature_size*2])
+					input_state = np.zeros(shape=[len(self.replay_mem.batch),self.feature_size+1])
 					truth = np.zeros(shape=[len(self.replay_mem.batch),self.action_size])
 					
 					for i in range(len(self.replay_mem.batch)):
