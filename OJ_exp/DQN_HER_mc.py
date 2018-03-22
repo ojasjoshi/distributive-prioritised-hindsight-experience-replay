@@ -32,7 +32,7 @@ class QNetwork():
 		self.learning_rate = 0.001																							#HYPERPARAMETER1
 
 		#linear network
-		if(deep==False and duel==False): 
+		if(deep==False and duel==False):
 			print("Setting up linear network....")
 			self.model = Sequential()
 			# self.model.add(Dense(env.action_space.n, input_dim = env.observation_space.shape[0], activation='linear', kernel_initializer='he_uniform', use_bias = True))
@@ -41,9 +41,9 @@ class QNetwork():
 			self.model.compile(optimizer = Adam(lr=self.learning_rate), loss='mse')
 			# plot_model(self.model, to_file='graphs/Linear.png', show_shapes = True)
 			self.model.summary()
-		
+
 		#deep network
-		elif(deep==True):	
+		elif(deep==True):
 			print("Setting up DDQN network....")
 			self.model = Sequential()
 			self.model.add(Dense(32, input_dim = env.observation_space.shape[0]*2, activation='relu', kernel_initializer='he_uniform',use_bias = True))
@@ -62,7 +62,7 @@ class QNetwork():
 			self.model.summary()
 
 		#dueling network
-		elif(duel==True):			
+		elif(duel==True):
 			print("Setting up Dueling DDQN network....")
 			inp = Input(shape=(env.observation_space.shape[0]*2,))
 			layer_shared1 = Dense(32,activation='relu',kernel_initializer='he_uniform',use_bias = True)(inp)
@@ -87,7 +87,7 @@ class QNetwork():
 			for i in range(env.action_space.n-1):
 				layer_v2 = keras.layers.concatenate([layer_v2,temp],axis=-1)
 				layer_mean = keras.layers.concatenate([layer_mean,temp2],axis=-1)
-				
+
 			# layer_q = Lambda(lambda x: K.expand_dims(x[0],axis=-1)  + x[1] - K.mean(x[1],keepdims=True), output_shape=(env.action_space.n,))([layer_v2, layer_a2])
 			layer_q = Subtract()([layer_a2,layer_mean])
 			layer_q = Add()([layer_q,layer_v2])
@@ -97,7 +97,7 @@ class QNetwork():
 			self.model = Model(inp, layer_q)
 			self.model.summary()
 			self.model.compile(optimizer = Adam(lr=self.learning_rate), loss='mse')
-			# plot_model(self.model, to_file='graphs/Duel_DQN.png', show_shapes = True)			
+			# plot_model(self.model, to_file='graphs/Duel_DQN.png', show_shapes = True)
 
 	def save_model_weights(self, suffix):
 		# Helper function to save your model / weights.
@@ -172,7 +172,7 @@ class DQN_Agent():
 		self.render = render
 		self.feature_size = env.observation_space.shape[0]
 		self.action_size = env.action_space.n
-		self.discount_factor = 1 	
+		self.discount_factor = 1
 		self.save_w = save_w
 
 		if(env_name == "CartPole-v0"):
@@ -186,11 +186,11 @@ class DQN_Agent():
 		self.num_episodes = 4000
 		self.epsilon_decay = float((self.epsilon-self.epsilon_min)/150000)										#HYPERPARAMETER5
 		self.update_prediction_net_iters =500 																	#HYPERPARAMETER6
-		self.avg_rew_buf_size_epi = 10 
+		self.avg_rew_buf_size_epi = 10
 		self.save_weights_iters = 10000
 		self.save_model_iters = 10000
-		self.print_epi = 1 
-		self.print_loss_epi = 50 
+		self.print_epi = 1
+		self.print_loss_epi = 50
 		self.main_goal = np.array([0.5,round(random.uniform(0.07,-0.07),2)])
 		self.K = 4
 
@@ -207,7 +207,7 @@ class DQN_Agent():
 	def greedy_policy(self, q_values):
 		# Creating greedy policy for test time.
 		return np.argmax(q_values[0])
-		
+
 
 	def train(self):
 		# In this function, we will train our network.
@@ -216,13 +216,13 @@ class DQN_Agent():
 		folder = 'none'
 		test_reward = []		#saves the testing rewards
 		train_reward = []		#saves the training rewards
-		curr_episode = 1 		
+		curr_episode = 1
 		iters = 1
 		max_reward = 0
 		reward_buf = collections.deque()
-		
+
 		self.burn_in_memory()
-		print("Burnin done....")	
+		print("Burnin done....")
 
 		save_episode_id=np.zeros(1)
 
@@ -263,7 +263,7 @@ class DQN_Agent():
 				if(self.render==True):
 					self.env.render()
 
-				#linear Q-network case	
+				#linear Q-network case
 				if(self.replay==False and self.deep==False and self.duel==False):
 					pass
 
@@ -289,14 +289,14 @@ class DQN_Agent():
 								it_n = True if np.sum(ns==ng)==self.feature_size*2 else False
 								# self.replay_mem.append([np.concatenate([s,ng],axis=-1),action,r_n,np.concatenate([ns,ng],axis=-1),it_n])
 								self.replay_mem.append([np.append(s,ng),a,r_n,np.append(ns,ng),it_n])
-						self.main_goal = np.array([0.5,round(random.uniform(0.07,-0.07),2)])	
+						self.main_goal = np.array([0.5,round(random.uniform(0.07,-0.07),2)])
 						break
 
 					self.replay_mem.sample_batch()
-					
+
 					input_state = np.zeros(shape=[len(self.replay_mem.batch),self.feature_size*2])
 					truth = np.zeros(shape=[len(self.replay_mem.batch),self.action_size])
-					
+
 					for i in range(len(self.replay_mem.batch)):
 						state_t,action_t,reward_t,nextstate_t,_ = self.replay_mem.batch[i]
 
@@ -311,7 +311,7 @@ class DQN_Agent():
 							q_target = reward_t + self.discount_factor*np.amax(self.prediction_net.model.predict(nextstate_t))
 							truth[i] = self.net.model.predict(state_t)
 							truth[i][action_t] = q_target
-					
+
 					if(curr_episode%self.print_loss_epi==0):
 						self.net.model.fit(input_state,truth,epochs=1,verbose=1,batch_size = len(self.replay_mem.batch))
 					else:
@@ -320,7 +320,7 @@ class DQN_Agent():
 					temp = np.append(nextstate,self.main_goal)
 					temp = temp.reshape(1,temp.shape[0])
 					# nextstate = nextstate.reshape([1,nextstate.shape[0]])
-					
+
 					q_nextstate = self.net.model.predict(temp)
 					nextaction = self.epsilon_greedy_policy(q_nextstate)
 					curr_state = nextstate
@@ -336,11 +336,11 @@ class DQN_Agent():
 					if(iters%self.save_model_iters==0):
 						with open('train_rew_backup.pkl', 'wb') as f:
 							pickle.dump(train_reward, f)
-						
+
 						self.prediction_net.model.save('backup_model.h5')
-							
+
 						if(self.save_w==True):
-							if(self.replay==True):		
+							if(self.replay==True):
 								if(self.env_name == "CartPole-v0"):
 									self.prediction_net.model.save('models/replay/cartpole/'+ str(iters) +'_cp_linear_rp_'+str(self.net.learning_rate)+'_'+str(self.replay_mem.burn_in)+'_'+str(self.replay_mem.memory_size)+'_'+'.h5')
 									folder = 'replay/cartpole'
@@ -356,7 +356,7 @@ class DQN_Agent():
 									self.prediction_net.model.save('models/deep/mountaincar/'+ str(iters) +'_mc_deep_rp_'+str(self.net.learning_rate)+'_'+str(self.replay_mem.burn_in)+'_'+str(self.replay_mem.memory_size)+'_'+'.h5')
 									folder = 'deep/mountaincar'
 
-							elif(self.duel==True):			
+							elif(self.duel==True):
 								if(self.env_name == "CartPole-v0"):
 									self.prediction_net.model.save('models/duel/cartpole/'+ str(iters) +'_cp_duel_rp_'+str(self.net.learning_rate)+'_'+str(self.replay_mem.burn_in)+'_'+str(self.replay_mem.memory_size)+'_'+'.h5')
 									folder = 'duel/cartpole'
@@ -366,7 +366,7 @@ class DQN_Agent():
 
 				self.epsilon -= self.epsilon_decay
 				self.epsilon = max(self.epsilon, 0.05)
-				
+
 				# if(iters%self.update_prediction_net_iters==0):
 				# 	self.prediction_net.load_model_weights(self.net.model.get_weights())
 				# 	self.net.visualise_weights()
@@ -394,7 +394,7 @@ class DQN_Agent():
 			for filename in os.listdir('models/'+folder):
 				if(filename!='.DS_Store' and isfile('models/'+join(folder,filename))):
 					final_weight_file = 'models/'+join(folder,filename)
-			
+
 		print("Train done :)")
 
 		return train_reward, final_weight_file
@@ -407,8 +407,8 @@ class DQN_Agent():
 		reward_array = np.zeros(epi)
 
 		tot_reward = 0
-		for e in range(epi):	
-			curr_reward = 0															
+		for e in range(epi):
+			curr_reward = 0
 			curr_state = self.env.reset()
 			curr_action = np.random.randint(self.action_size)
 			while(True):
@@ -419,7 +419,7 @@ class DQN_Agent():
 				nextstate = nextstate.reshape([1,nextstate.shape[0]])
 				q_nextstate = self.net.model.predict(nextstate)
 				nextaction = self.greedy_policy(q_nextstate)
-				
+
 				curr_state = nextstate
 				curr_action = nextaction
 
@@ -454,7 +454,7 @@ class DQN_Agent():
 						r_n = 0 if np.sum(ns==ng)==self.feature_size*2 else -1
 						it_n = True if np.sum(ns==ng)==self.feature_size*2 else False
 						self.replay_mem.append([np.append(s,ng),a,r_n,np.append(ns,ng),it_n])
-					curr_mem_size += (1+k)									
+					curr_mem_size += (1+k)
 				state = self.env.reset()
 			else:
 				state = nextstate
@@ -496,13 +496,13 @@ def main(args):
 
 	if(args.train==True):
 		train_reward,final_weight_file = agent.train()
-	
+
 	if(args.train==False):
 		agent.test(args.model)
 		print("Training done...\nFollowing is the average reward")
 		print(agent.evaluate)
 
-	#saves the training rewards and the final model file 
+	#saves the training rewards and the final model file
 	if(args.save_model==True):
 		if(environment_name=="CartPole-v0"):
 			if(True==args.deep):
@@ -538,7 +538,7 @@ def main(args):
 				with open('data/train_rew_mc_linear.pkl', 'wb') as f:
 					pickle.dump(train_reward, f)
 					agent.net.model.save('data/final_model_mc_linear.h5')
-		
+
 		print("Data and model saved :)\nNow run DQN_plot.py with same arguments to plot and save mean,std")
 
 

@@ -48,10 +48,10 @@ class QNetwork():
 			self.model = Sequential()
 			self.model.add(Dense(32, input_dim = env.observation_space.shape[0]+1, activation='relu', kernel_initializer='he_uniform',use_bias = True))
 			# self.model.add(BatchNormalization())
-			self.model.add(Dense(64, input_dim = 32,activation='relu', kernel_initializer='he_uniform',use_bias = True))
+			self.model.add(Dense(32, input_dim = 32,activation='relu', kernel_initializer='he_uniform',use_bias = True))
 			# self.model.add(BatchNormalization())
-			self.model.add(Dense(64, input_dim = 64, activation='relu', kernel_initializer='he_uniform',use_bias = True))
-			self.model.add(Dense(32, input_dim = 64, activation='relu', kernel_initializer='he_uniform',use_bias = True))
+			# self.model.add(Dense(64, input_dim = 64, activation='relu', kernel_initializer='he_uniform',use_bias = True))
+			# self.model.add(Dense(32, input_dim = 64, activation='relu', kernel_initializer='he_uniform',use_bias = True))
 			self.model.add(Dense(32, input_dim = 32, activation='relu', kernel_initializer='he_uniform',use_bias = True))
 			# self.model.add(BatchNormalization())
 			self.model.add(Dense(env.action_space.n, input_dim = 32, activation='linear', kernel_initializer='he_uniform',use_bias = True))
@@ -72,12 +72,12 @@ class QNetwork():
 			# layer_shared2 = BatchNormalization()(layer_shared2)
 			print("Shared layers initialized....")
 
-			# layer_v1 = Dense(16,activation='relu',kernel_initializer='he_uniform',use_bias = True)(layer_shared2)
+			layer_v1 = Dense(64,activation='relu',kernel_initializer='he_uniform',use_bias = True)(layer_shared2)
 			# # layer_v1 = BatchNormalization()(layer_v1)
-			# layer_a1 = Dense(16,activation='relu',kernel_initializer='he_uniform',use_bias = True)(layer_shared2)
+			layer_a1 = Dense(64,activation='relu',kernel_initializer='he_uniform',use_bias = True)(layer_shared2)
 			# layer_a1 = BatchNormalization()(layer_a1)
-			layer_v2 = Dense(1,activation='linear',kernel_initializer='he_uniform',use_bias = True)(layer_shared2)
-			layer_a2 = Dense(env.action_space.n,activation='linear',kernel_initializer='he_uniform',use_bias = True)(layer_shared2)
+			layer_v2 = Dense(1,activation='linear',kernel_initializer='he_uniform',use_bias = True)(layer_v1)
+			layer_a2 = Dense(env.action_space.n,activation='linear',kernel_initializer='he_uniform',use_bias = True)(layer_a1)
 			print("Value and Advantage Layers initialised....")
 
 			layer_mean = Lambda(lambda x: K.mean(x,axis=-1,keepdims=True))(layer_a2)
@@ -243,7 +243,7 @@ class DQN_Agent():
 			else:
 				video_file_path = 'videos/'+str(self.env_name)+'/linear/'
 
-			self.env = Monitor(self.env,video_file_path,video_callable= lambda episode_id: episode_id in save_episode_id, force=True)
+			# self.env = Monitor(self.env,video_file_path,video_callable= lambda episode_id: episode_id in save_episode_id, force=True)
 
 		complete = 0
 		# learning iterations
@@ -308,8 +308,8 @@ class DQN_Agent():
 							truth[i] = self.net.model.predict(state_t)
 							truth[i][action_t] = reward_t
 						else:
-							q_target = reward_t + self.discount_factor*np.amax(self.prediction_net.model.predict(nextstate_t))
 							truth[i] = self.net.model.predict(state_t)
+							q_target = reward_t + self.discount_factor*self.prediction_net.model.predict(nextstate_t)[np.argmax(truth[i])]
 							truth[i][action_t] = q_target
 					
 					if(curr_episode%self.print_loss_epi==0):
@@ -478,7 +478,7 @@ def main(args):
 	args = parse_arguments()
 	environment_name = args.env
 	env = gym.make(environment_name)
-	save_w = False										#manually set to true when you want to save the training rewards and final weight file
+	save_w = True										#manually set to true when you want to save the training rewards and final weight file
 
 	#Setting the session to allow growth, so it doesn't allocate all GPU memory.
 	gpu_ops = tf.GPUOptions(allow_growth=True)

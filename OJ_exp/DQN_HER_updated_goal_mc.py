@@ -36,7 +36,7 @@ class QNetwork():
 			print("Setting up linear network....")
 			self.model = Sequential()
 			# self.model.add(Dense(env.action_space.n, input_dim = env.observation_space.shape[0], activation='linear', kernel_initializer='he_uniform', use_bias = True))
-			self.model.add(Dense(32, input_dim = env.observation_space.shape[0]*2, activation='linear', kernel_initializer='he_uniform',use_bias = True))
+			self.model.add(Dense(32, input_dim = env.observation_space.shape[0]+1, activation='linear', kernel_initializer='he_uniform',use_bias = True))
 			self.model.add(Dense(env.action_space.n, input_dim = 32, activation='linear', kernel_initializer='he_uniform',use_bias = True))
 			self.model.compile(optimizer = Adam(lr=self.learning_rate), loss='mse')
 			# plot_model(self.model, to_file='graphs/Linear.png', show_shapes = True)
@@ -46,7 +46,7 @@ class QNetwork():
 		elif(deep==True):	
 			print("Setting up DDQN network....")
 			self.model = Sequential()
-			self.model.add(Dense(32, input_dim = env.observation_space.shape[0]*2, activation='relu', kernel_initializer='he_uniform',use_bias = True))
+			self.model.add(Dense(32, input_dim = env.observation_space.shape[0]+1, activation='relu', kernel_initializer='he_uniform',use_bias = True))
 			# self.model.add(BatchNormalization())
 			self.model.add(Dense(64, input_dim = 32,activation='relu', kernel_initializer='he_uniform',use_bias = True))
 			# self.model.add(BatchNormalization())
@@ -64,7 +64,7 @@ class QNetwork():
 		#dueling network
 		elif(duel==True):			
 			print("Setting up Dueling DDQN network....")
-			inp = Input(shape=(env.observation_space.shape[0]*2,))
+			inp = Input(shape=(env.observation_space.shape[0]+1,))
 			layer_shared1 = Dense(32,activation='relu',kernel_initializer='he_uniform',use_bias = True)(inp)
 			# layer_shared1 = BatchNormalization()(layer_shared1)
 			layer_shared2 = Dense(32,activation='relu',kernel_initializer='he_uniform',use_bias = True)(layer_shared1)
@@ -191,7 +191,7 @@ class DQN_Agent():
 		self.save_model_iters = 10000
 		self.print_epi = 1 
 		self.print_loss_epi = 50 
-		self.main_goal = np.array([0.5,round(random.uniform(0.07,-0.07),2)])
+		self.main_goal = np.array([0.5])
 		self.K = 4
 
 		#stores the test reward
@@ -279,7 +279,7 @@ class DQN_Agent():
 					if(is_terminal):
 						for t in range(len(episode_experience)):
 							s,a,r,ns,g,it = episode_experience[t]
-							self.replay_mem.append([np.append(s,g),a,r,np.append(ns,g),it])
+							self.replay_mem.append([np.append(s,g[0]),a,r,np.append(ns,g[0]),it])
 							# self.replay_mem.append([np.concatenate([s,g],axis=-1),action,reward,np.concatenate([ns,g],axis=-1),it])
 							#HER
 							for k in range(self.K): #loop over size of augmented transitions
@@ -288,13 +288,13 @@ class DQN_Agent():
 								r_n = 0 if np.sum(ns==ng)==self.feature_size*2 else -1
 								it_n = True if np.sum(ns==ng)==self.feature_size*2 else False
 								# self.replay_mem.append([np.concatenate([s,ng],axis=-1),action,r_n,np.concatenate([ns,ng],axis=-1),it_n])
-								self.replay_mem.append([np.append(s,ng),a,r_n,np.append(ns,ng),it_n])
-						self.main_goal = np.array([0.5,round(random.uniform(0.07,-0.07),2)])	
+								self.replay_mem.append([np.append(s,ng[0]),a,r_n,np.append(ns,ng[0]),it_n])
+						# self.main_goal = np.array([0.5])	
 						break
 
-					self.replay_mem.sample_batch()
+					self.replay_mem.sample_batch(50)
 					
-					input_state = np.zeros(shape=[len(self.replay_mem.batch),self.feature_size*2])
+					input_state = np.zeros(shape=[len(self.replay_mem.batch),self.feature_size+1])
 					truth = np.zeros(shape=[len(self.replay_mem.batch),self.action_size])
 					
 					for i in range(len(self.replay_mem.batch)):
@@ -446,19 +446,18 @@ class DQN_Agent():
 			if(is_terminal == True):
 				for t in range(len(episode_experience)):
 					s,a,r,ns,g,it = episode_experience[t]
-					self.replay_mem.append([np.append(s,g),a,r,np.append(ns,g),it])
+					self.replay_mem.append([np.append(s,g[0]),a,r,np.append(ns,g[0]),it])
 					#HER
 					for k in range(self.K): #loop over size of augmented transitions
 						new_g = np.random.randint(t,len(episode_experience)) 	#future_strategy from HER Paper
 						_,_,_,ng,_,_ = episode_experience[new_g]
 						r_n = 0 if np.sum(ns==ng)==self.feature_size*2 else -1
 						it_n = True if np.sum(ns==ng)==self.feature_size*2 else False
-						self.replay_mem.append([np.append(s,ng),a,r_n,np.append(ns,ng),it_n])
+						self.replay_mem.append([np.append(s,ng[0]),a,r_n,np.append(ns,ng[0]),it_n])
 					curr_mem_size += (1+k)									
 				state = self.env.reset()
 			else:
 				state = nextstate
-				self.main_goal = np.array([0.5,round(random.uniform(0.07,-0.07),2)])
 			action = np.random.randint(self.action_size)
 
 
