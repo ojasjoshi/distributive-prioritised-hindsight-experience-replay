@@ -1,5 +1,5 @@
 # distributive-prioritised-hindsight-experience-replay
-DRL Project
+Towards faster convergence in multi-goal, sparse rewards Reinforcement Learning settings
 
 
 Collaborators:
