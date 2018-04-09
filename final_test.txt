@@ -1,0 +1,16 @@
+mountaincar-duel-std	0.0
+mountaincar-duel-mean	-200.0
+mountaincar-linear-std	0.0
+mountaincar-linear-mean	-200.0
+mountaincar-duel-std	0.0
+mountaincar-duel-mean	-200.0
+mountaincar-linear-std	0.0
+mountaincar-linear-mean	-200.0
+mountaincar-duel-std	0.0
+mountaincar-duel-mean	-200.0
+mountaincar-linear-std	0.0
+mountaincar-linear-mean	-200.0
+mountaincar-duel-std	0.0
+mountaincar-duel-mean	-200.0
+mountaincar-linear-std	0.0
+mountaincar-linear-mean	-200.0
