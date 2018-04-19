@@ -130,7 +130,7 @@ class DQN_Agent():
 		self.print_epi = 1 
 		self.print_loss_epi = 50 
 		self.main_goal = np.array([0.5])
-		self.K = 0
+		self.K = K
 		self.opt_steps = 100
 
 		#stores the test reward
@@ -159,15 +159,15 @@ class DQN_Agent():
 		iters = 1
 		max_reward = 0
 		reward_buf = collections.deque()
-		
+		print("HER with K = ",self.K)
 		self.burn_in_memory()
 		print("Burnin done....")	
 
-		# save_episode_id=np.around(np.linspace(0,self.num_episodes,num=40))
+		save_episode_id=np.around(np.linspace(0,self.num_episodes,num=40))
 
 		# #saving video file
-		# video_file_path = 'videos/'+str(self.env_name)+'/duel/'
-		# self.env = Monitor(self.env,video_file_path,video_callable= lambda episode_id: episode_id in save_episode_id, force=True)
+		video_file_path = 'offline_k'+str(self.K)+'/videos/'
+		self.env = Monitor(self.env,video_file_path,video_callable= lambda episode_id: episode_id in save_episode_id, force=True)
 			
 		# learning iterations
 
