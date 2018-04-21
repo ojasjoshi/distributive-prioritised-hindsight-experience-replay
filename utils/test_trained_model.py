@@ -19,7 +19,7 @@ def greedy_policy(q_values):
         # Creating greedy policy for test time.
         return np.argmax(q_values[0])
 
-def boltzman_policy(q_values,tau=1., clip=(-500., 500.)):
+def boltzman_policy(q_values, tau=1., clip=(-500., 500.)):
     q_values[0] = q_values[0].astype('float64')
     nb_actions = q_values[0].shape[0]
 
@@ -45,7 +45,8 @@ def render_one_episode(model,env,epi_num):
         print("Total reward for {} : {}".format(epi_num,np.sum(rewards)))
 
 def main():
-    env = gym.make('LunarLander-v2')
+    # env = gym.make('LunarLander-v2')
+    env = gym.make('Acrobot-v1')
 
     num_episodes=10
     # save_episode_id=np.around(np.linspace(0,num_episodes,num=1))

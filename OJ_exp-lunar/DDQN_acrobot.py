@@ -89,9 +89,9 @@ class QNetwork():
 			inp = Input(shape=(env.observation_space.shape[0],))
 
 			#alternate1
-			hidden_layer = Dense(64,activation='relu',kernel_initializer='he_uniform')(inp)										#(CHANGED)
-			hidden_layer = Dense(32,activation='relu',kernel_initializer='he_uniform')(inp)
-			hidden_layer = Dense(32,activation='relu',kernel_initializer='he_uniform')(inp)
+			hidden_layer = Dense(16,activation='relu',kernel_initializer='he_uniform')(inp)										#(CHANGED)
+			hidden_layer = Dense(16,activation='relu',kernel_initializer='he_uniform')(inp)
+			hidden_layer = Dense(16,activation='relu',kernel_initializer='he_uniform')(inp)
 			
 			#alternate2
 			# hidden_layer = Dense(32,activation='relu',kernel_initializer='he_uniform',use_bias = True)(inp)
@@ -148,7 +148,7 @@ class QNetwork():
 
 class Replay_Memory():
 
-	def __init__(self, memory_size=100000, burn_in=2000):													    #(CHANGED)
+	def __init__(self, memory_size=50000, burn_in=5000):													    #(CHANGED)
 
 		# The memory essentially stores transitions recorder from the agent
 		# taking actions in the environment.
@@ -211,7 +211,7 @@ class DQN_Agent():
 		self.tau = tau 	# (boltzman_policy)
 		self.clip = clip
 
-		self.update_target_model = 500
+		self.update_target_model = 1
 
 	def epsilon_greedy_policy(self, q_values):
 		# Creating epsilon greedy probabilities to sample from.
@@ -267,8 +267,8 @@ class DQN_Agent():
 			curr_state = self.env.reset()	
 			temp_state = curr_state
 			temp_state = temp_state.reshape([1,self.env.observation_space.shape[0]])
-			# curr_action = self.epsilon_greedy_policy(self.net.model.predict(temp_state))
-			curr_action = self.boltzman_policy(self.net.model.predict(temp_state))
+			curr_action = self.epsilon_greedy_policy(self.net.model.predict(temp_state))
+			# curr_action = self.boltzman_policy(self.net.model.predict(temp_state))
 			curr_steps = 0
 
 			while(True): 																							#uncomment for mountaincar
@@ -313,33 +313,34 @@ class DQN_Agent():
 				#going to next step of episode
 				nextstate = nextstate.reshape([1,self.env.observation_space.shape[0]])
 				q_nextstate = self.net.model.predict(nextstate)
-				# nextaction = self.epsilon_greedy_policy(q_nextstate)
-				nextaction = self.boltzman_policy(q_nextstate)
+				nextaction = self.epsilon_greedy_policy(q_nextstate)
+				# nextaction = self.boltzman_policy(q_nextstate)
 				curr_state = nextstate
 				curr_action = nextaction
 
 				curr_steps += 1
 				steps += 1
+
 			###end of episode###
 
+			## update prediction network
+				if(e%self.update_target_model==0):
+					if(self.TAU<1.):
+						## soft updates
+						model_weights = self.net.model.get_weights()
+						model_target_weights = self.prediction_net.model.get_weights()
+						for i in range(len(model_weights)):
+							model_target_weights[i] = self.TAU * model_weights[i] + (1 - self.TAU)* model_target_weights[i]
+						self.prediction_net.model.set_weights(model_target_weights)
+					else:
+						## hard update
+							self.prediction_net.model.set_weights(self.net.model.get_weights())
+							
 			#decay epsilon
 			self.epsilon -= self.epsilon_decay
 			self.epsilon = max(self.epsilon, 0.0)
 
 			## (optimisation step can be here)
-
-			## update prediction network
-			if(steps%self.update_target_model==0):
-				if(self.TAU<1.):
-					## soft updates
-					model_weights = self.net.model.get_weights()
-					model_target_weights = self.prediction_net.model.get_weights()
-					for i in range(len(model_weights)):
-						model_target_weights[i] = self.TAU * model_weights[i] + (1 - self.TAU)* model_target_weights[i]
-					self.prediction_net.model.set_weights(model_target_weights)
-				else:
-					## hard update
-						self.prediction_net.set_weights(self.net.model.get_weights())
 
 			# shitty things
 			if(e%self.test_model_episodes==0):
@@ -347,14 +348,13 @@ class DQN_Agent():
 				
 				test_mean, test_std, mean_q_test = self.test(self.env)
 				train_data.append([test_mean, test_std])
-				template = "Episode: {episode}, Test_Mean: {test_mean:.3f}, Test_Std: {test_std:.3f}, Mean_Q_val_train: {mean_q_tr:.3f}, Mean_Q_val_test: {mean_q_te:.3f}, Avg_Landings: {avg_land:.3f}, Mean_loss: {mean_loss:.3f}, Interval_time: {interval_time:.3f}s"
+				template = "Episode: {episode}, Test_Mean: {test_mean:.3f}, Test_Std: {test_std:.3f}, Mean_Q_val_train: {mean_q_tr:.3f}, Mean_Q_val_test: {mean_q_te:.3f}, Mean_loss: {mean_loss:.3f}, Interval_time: {interval_time:.3f}s"
 				variables = {
 					'episode': e,
 					'test_mean':test_mean,
 					'test_std':test_std,
 					'mean_q_tr':np.mean(np.hstack(q_vals_list)),
 					'mean_q_te':mean_q_test,
-					'avg_land':num_landings/self.test_model_episodes,
 					'mean_loss':np.mean(loss_list),
 					'interval_time':interval_time
 				}
@@ -464,7 +464,7 @@ class DQN_Agent():
 
 def parse_arguments():
 	parser = argparse.ArgumentParser(description='Deep Q Network Argument Parser')
-	parser.add_argument('--env',dest='env',type=str,default='LunarLander-v2')
+	parser.add_argument('--env',dest='env',type=str,default='Acrobot-v1')
 	parser.add_argument('--render',dest='render',type=bool,default=False)
 	parser.add_argument('--train',dest='train',type=bool,default=True)
 	parser.add_argument('--model',dest='model_file',type=str)
