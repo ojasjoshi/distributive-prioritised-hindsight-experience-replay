@@ -5,7 +5,7 @@ Collaborators:
 Ojas Joshi
 
 
-We are focussing on: 
+Focussing on: 
 
 Validation Environment: 'FetchReach-v0' 
 Test Environment: 'FetchPush-v0' 
@@ -46,15 +46,11 @@ Extra:
 - Keep check_json.py in the same folder as ddpg.py (in general keep the entire folder strucuture unchanges)
 - make /HER/ and /PHER/ subfolders in examples directory 
 
+Note: Code based on keras-rl (https://github.com/keras-rl/keras-rl) repository
+
 References: 
 
-0.bibtex @misc{plappert2016kerasrl,
-    author = {Matthias Plappert},
-    title = {keras-rl},
-    year = {2016},
-    publisher = {GitHub},
-    journal = {GitHub repository},
-    howpublished = {\url{https://github.com/keras-rl/keras-rl}},
+0. keras-rl, Matthias Plappert, 2016, https://github.com/keras-rl/keras-rl
 1. Hindsight Experience Replay(A. Marcin et al, 2018)
 2. DISTRIBUTED PRIORITIZED EXPERIENCE REPLAY (Dan Horgan et al, 2018)
 3. Universal Value Function Approximators (S. Tom et al, 2017)
