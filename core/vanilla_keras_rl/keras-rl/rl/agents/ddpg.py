@@ -6,7 +6,6 @@ import warnings
 import numpy as np
 import keras.backend as K
 import keras.optimizers as optimizers
-from copy import deepcopy
 
 from rl.core import Agent
 from rl.random import OrnsteinUhlenbeckProcess
@@ -26,8 +25,7 @@ class DDPGAgent(Agent):
     def __init__(self, nb_actions, actor, critic, critic_action_input, memory,
                  gamma=.99, batch_size=32, nb_steps_warmup_critic=1000, nb_steps_warmup_actor=1000,
                  train_interval=1, memory_interval=1, delta_range=None, delta_clip=np.inf,
-                 random_process=None, custom_model_objects={}, target_model_update=.001, do_HER=True, K=4, HER_strategy='future',
-                 do_PER=True, epsilon = 1e-4, **kwargs):
+                 random_process=None, custom_model_objects={}, target_model_update=.001, **kwargs):
         if hasattr(actor.output, '__len__') and len(actor.output) > 1:
             raise ValueError('Actor "{}" has more than one output. DDPG expects an actor that has a single output.'.format(actor))
         if hasattr(critic.output, '__len__') and len(critic.output) > 1:
@@ -60,29 +58,22 @@ class DDPGAgent(Agent):
         self.random_process = random_process
         self.delta_clip = delta_clip
         self.gamma = gamma
-        self.target_model_update = target_model_update  
+        self.target_model_update = target_model_update
         self.batch_size = batch_size
         self.train_interval = train_interval
         self.memory_interval = memory_interval
-        self.custom_model_objects = custom_model_objects # (custom objectives)
+        self.custom_model_objects = custom_model_objects
 
         # Related objects.
         self.actor = actor
         self.critic = critic
         self.critic_action_input = critic_action_input
-        self.critic_action_input_idx = self.critic.input.index(critic_action_input)     # (index of the input layer during new batch)(?)
+        self.critic_action_input_idx = self.critic.input.index(critic_action_input)
         self.memory = memory
 
         # State.
         self.compiled = False
         self.reset_states()
-        self.current_episode_experience = []    # (stores current episode experience as [s',a, s, r, is_terminal])
-        self.K = K 
-        self.do_HER = do_HER
-        self.do_PER = do_PER
-        self.strategy = HER_strategy
-        ## (TODO: try to take it into memory.py/PER)
-        self.epsilon = epsilon
 
     @property
     def uses_learning_phase(self):
@@ -93,7 +84,7 @@ class DDPGAgent(Agent):
 
         if type(optimizer) in (list, tuple):
             if len(optimizer) != 2:
-                raise ValueError('More than optimizers provided. Please only provide a maximum of two optimizers, the first one for the actor and the second one for the critic.')
+                raise ValueError('More than two optimizers provided. Please only provide a maximum of two optimizers, the first one for the actor and the second one for the critic.')
             actor_optimizer, critic_optimizer = optimizer
         else:
             actor_optimizer = optimizer
@@ -121,7 +112,7 @@ class DDPGAgent(Agent):
 
         # We also compile the actor. We never optimize the actor using Keras but instead compute
         # the policy gradient ourselves. However, we need the actor in feed-forward mode, hence
-        # we also compile it with any optimzer and loss
+        # we also compile it with any optimzer and
         self.actor.compile(optimizer='sgd', loss='mse')
 
         # Compile the critic.
@@ -146,7 +137,7 @@ class DDPGAgent(Agent):
         combined_output = self.critic(combined_inputs)
 
         updates = actor_optimizer.get_updates(
-            params=self.actor.trainable_weights, loss=-K.mean(combined_output))  # (gradient updates for actor)
+            params=self.actor.trainable_weights, loss=-K.mean(combined_output))
         if self.target_model_update < 1.:
             # Include soft target model updates.
             updates += get_soft_target_model_updates(self.target_actor, self.actor, self.target_model_update)
@@ -154,7 +145,7 @@ class DDPGAgent(Agent):
 
         # Finally, combine it all into a callable function.
         if K.backend() == 'tensorflow':
-            self.actor_train_fn = K.function(critic_inputs + [K.learning_phase()],          # (function to apply gradient updates)
+            self.actor_train_fn = K.function(critic_inputs + [K.learning_phase()],
                                              [self.actor(critic_inputs)], updates=updates)
         else:
             if self.uses_learning_phase:
@@ -208,7 +199,7 @@ class DDPGAgent(Agent):
         assert action.shape == (self.nb_actions,)
 
         # Apply noise, if a random process is set.
-        if self.training and self.random_process is not None:   # (for exploration)
+        if self.training and self.random_process is not None:
             noise = self.random_process.sample()
             assert noise.shape == action.shape
             action += noise
@@ -237,22 +228,11 @@ class DDPGAgent(Agent):
             names += self.processor.metrics_names[:]
         return names
 
-    def backward(self, reward, nextstate, info, env, terminal=False):
+    def backward(self, reward, terminal=False):
         # Store most recent experience in memory.
-
-        """ WARNING: Keep self.memory_interval=1"""
-        assert self.memory_interval == 1
-
         if self.step % self.memory_interval == 0:
-            self.memory.append(self.recent_observation, self.recent_action, nextstate, reward, terminal,
-                               training=self.training)       
-
-            self.current_episode_experience.append([self.recent_observation, self.recent_action, nextstate, reward, terminal, info])
-        
-        if(terminal==True):
-            if(self.do_HER):
-                self.add_HER(env,strategy=self.strategy)
-            self.current_episode_experience = []    # reset current episode experience if new episode begins
+            self.memory.append(self.recent_observation, self.recent_action, reward, terminal,
+                               training=self.training)
 
         metrics = [np.nan for _ in self.metrics_names]
         if not self.training:
@@ -261,32 +241,23 @@ class DDPGAgent(Agent):
             return metrics
 
         # Train the network on a single stochastic batch.
-        can_train_either = self.step > self.nb_steps_warmup_critic or self.step > self.nb_steps_warmup_actor # (check warmup is over or not and can both actor and critic can be trained)
+        can_train_either = self.step > self.nb_steps_warmup_critic or self.step > self.nb_steps_warmup_actor
         if can_train_either and self.step % self.train_interval == 0:
-            if(self.do_PER):
-                experiences, experience_idxs = self.memory.sample(batch_size=self.batch_size)                   # (samples the batch from replay)
-                assert len(experiences) == len(experience_idxs)
-            else:
-                experiences = self.memory.sample(batch_size=self.batch_size)                   # (samples the batch from replay)
-                
+            experiences = self.memory.sample(self.batch_size)
             assert len(experiences) == self.batch_size
 
-            # Start by extracting the necessary parameters (we use a vectorized implementation). # (vectorized => list)
+            # Start by extracting the necessary parameters (we use a vectorized implementation).
             state0_batch = []
             reward_batch = []
             action_batch = []
             terminal1_batch = []
             state1_batch = []
-            if(self.do_PER):
-                weights_batch = []
             for e in experiences:
                 state0_batch.append(e.state0)
                 state1_batch.append(e.state1)
                 reward_batch.append(e.reward)
                 action_batch.append(e.action)
                 terminal1_batch.append(0. if e.terminal1 else 1.)
-                if(self.do_PER):
-                    weights_batch.append(e.importance_weight)
 
             # Prepare and validate parameters.
             state0_batch = self.process_state_batch(state0_batch)
@@ -294,30 +265,12 @@ class DDPGAgent(Agent):
             terminal1_batch = np.array(terminal1_batch)
             reward_batch = np.array(reward_batch)
             action_batch = np.array(action_batch)
-            if(self.do_PER):
-                weights_batch = np.array(weights_batch)
             assert reward_batch.shape == (self.batch_size,)
             assert terminal1_batch.shape == reward_batch.shape
             assert action_batch.shape == (self.batch_size, self.nb_actions)
-            if(self.do_PER):
-                assert weights_batch.shape == (self.batch_size,)
 
             # Update critic, if warm up is over.
             if self.step > self.nb_steps_warmup_critic:
-
-                if(self.do_PER):
-                    # Find input q_values
-                    input_actions = action_batch
-                    assert input_actions.shape == (self.batch_size, self.nb_actions)
-                    if len(self.critic.inputs) >= 3:
-                        state0_batch_with_action = state0_batch[:]
-                    else:
-                        state0_batch_with_action = [state0_batch]
-                    state0_batch_with_action.insert(self.critic_action_input_idx, input_actions)
-                    input_q_values = self.target_critic.predict_on_batch(state0_batch_with_action).flatten()
-                    assert input_q_values.shape == (self.batch_size,)
-
-                # Find target q_values
                 target_actions = self.target_actor.predict_on_batch(state1_batch)
                 assert target_actions.shape == (self.batch_size, self.nb_actions)
                 if len(self.critic.inputs) >= 3:
@@ -335,28 +288,16 @@ class DDPGAgent(Agent):
                 assert discounted_reward_batch.shape == reward_batch.shape
                 targets = (reward_batch + discounted_reward_batch).reshape(self.batch_size, 1)
 
-                if(self.do_PER):
-                    """ Prioritised Experience Replay Implementation """
-                    # update the priorities of transitions with TD errors
-                    TD_errors = abs(targets - np.expand_dims(input_q_values,axis=1)).flatten() + self.epsilon*np.ones(shape=(self.batch_size,))
-                    self.memory.update_priorities(TD_errors, experience_idxs)
-
                 # Perform a single batch update on the critic network.
                 if len(self.critic.inputs) >= 3:
                     state0_batch_with_action = state0_batch[:]
                 else:
                     state0_batch_with_action = [state0_batch]
                 state0_batch_with_action.insert(self.critic_action_input_idx, action_batch)
-                
-                if(self.do_PER):
-                    """" CHECK: sample_weight usage """
-                    metrics = self.critic.train_on_batch(state0_batch_with_action, targets, sample_weight=weights_batch)
-                else:
-                    metrics = self.critic.train_on_batch(state0_batch_with_action, targets)
-
+                metrics = self.critic.train_on_batch(state0_batch_with_action, targets)
                 if self.processor is not None:
                     metrics += self.processor.metrics
-            
+
             # Update actor, if warm up is over.
             if self.step > self.nb_steps_warmup_actor:
                 # TODO: implement metrics for actor
@@ -368,38 +309,8 @@ class DDPGAgent(Agent):
                     inputs += [self.training]
                 action_values = self.actor_train_fn(inputs)[0]
                 assert action_values.shape == (self.batch_size, self.nb_actions)
-                
+
         if self.target_model_update >= 1 and self.step % self.target_model_update == 0:
             self.update_target_models_hard()
 
         return metrics
-
-
-    ## FetchSlide/FetchPush: [3:6] is the achieved goal, [-3:] is the desired goal (when wrapper.flatten is used w/o 'achieved goal' as key)
-    ## FetchReach: [0:3] is the achieved goal, [-3:] is the desired goal (when wrapper.flatten is used w/o 'achieved goal' as key)
-
-    def add_HER(self, env, strategy='future'):
-        for t in range(len(self.current_episode_experience)):
-            sample_index = t
-            if(strategy=='episode'):
-                sample_index = 0
-            for k in range(self.K):
-                new_goal_idx = np.random.randint(sample_index,len(self.current_episode_experience))
-                new_goal = deepcopy(self.current_episode_experience[new_goal_idx][2][3:6])    # randomly sampled substitute goal from states seen after the current transition
-                
-                # update the original transition
-                her_curr_observation, curr_action, her_next_observation, _ , curr_terminal, info = self.current_episode_experience[t]
-                
-                her_achieved_goal = deepcopy(her_next_observation[3:6])
-                her_next_observation = deepcopy(her_next_observation)
-                her_curr_observation = deepcopy(her_curr_observation)
-
-                her_next_observation[-3:] = new_goal 
-                her_curr_observation[-3:] = new_goal 
-                her_reward = env.compute_reward(her_achieved_goal, new_goal, info)
-
-                """ WARNING: NonSequentialMemory required """
-                self.memory.append(her_curr_observation, curr_action, her_next_observation, her_reward, curr_terminal)
-
-
-

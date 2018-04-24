@@ -1,5 +1,6 @@
 import numpy as np
-
+import sys
+import argparse
 import gym
 from gym import wrappers
 
@@ -20,37 +21,56 @@ class MujocoProcessor(WhiteningNormalizerProcessor):
     def process_action(self, action):
         return np.clip(action, -1., 1.)
 
+def parse_arguments():
+	parser = argparse.ArgumentParser()
+	""" WARNING: With env, change ddpg.py/add_HER function accordingly """
+	parser.add_argument('--env', dest='ENV_NAME',type=str, default='FetchPush-v0',help="Environment Name")
+	parser.add_argument('--her', dest='HER',type=bool, default=True,help="Do Hindsight Experience Replay")
+	parser.add_argument('--per', dest='PER',type=bool, default=True,help="Do Prioritised Experience Replay")
+	parser.add_argument('--k', dest='K',type=int, default=4,help="HER parameter")
+	parser.add_argument('--her_strategy', dest='her_strategy',type=str, default='future',help="HER strategy")
+	parser.add_argument('--batch_size', dest='batch_size',type=int, default=64,help="Batch Size")
+	parser.add_argument('--gamma', dest='gamma',type=float, default=0.99,help="Value of gamma")
+	parser.add_argument('--soft_target_update', dest='soft_update',type=float, default=1e-3,help="Value of soft update of target network")
+	parser.add_argument('--actor_lr', dest='actor_lr',type=float, default=5e-4,help="Value of actor learning rate")
+	parser.add_argument('--critic_lr', dest='critic_lr',type=float, default=1e-3,help="Value of critic learning rate")
+	parser.add_argument('--alpha', dest='alpha',type=float, default=0.7,help="Value of alpha PER between 0 and 1")
+	parser.add_argument('--beta', dest='beta',type=float, default=0.5,help="Value of beta PER between 0 and 1")
+	parser.add_argument('--memory_size', dest='memory_size',type=int, default=50000,help="Experience Replay Size")
+	parser.add_argument('--max_step_episode', dest='max_step_episode',type=int, default=50,help="Number of steps before resetting the episode")
+	parser.add_argument('--file_interval', dest='file_interval',type=int, default=10000,help="Data save interval")
+	parser.add_argument('--nb_train_steps', dest='nb_train_steps',type=int, default=200000,help="Number of training steps")
+	parser.add_argument('--nb_test_episodes', dest='nb_test_episodes',type=int, default=5,help="Number of test episodes")
+	parser.add_argument('--monitor', dest='monitor',type=int, default=False, help="Turn on monitor")
+	parser.add_argument('--seed', dest='seed',type=int, default=123, help="Seed")
+	parser.add_argument('--delta_clip', dest='delta_clip',type=float, default=np.inf, help="Huber loss delta clip")
+
+	return parser.parse_args()
 
 """ TODO: delta_clip?, rank-based PER, check MujocoProcessor """
 
-
-""" WARNING: With env, change ddpg.py/add_HER function accordingly """
-# ENV_NAME = 'FetchSlide-v0'
-# ENV_NAME = 'FetchPush-v0'
-# ENV_NAME = 'FetchPickAndPlace-v0'
-ENV_NAME = 'FetchReach-v0'
-HER = True
-PER = False
-K = 4	# following future strategy by default (can set 'episode' strategy)
+args = parse_arguments()
 
 gym.undo_logger_setup()
 
 # Get the environment and extract the number of actions.
-env = gym.make(ENV_NAME)
-# observation_space_n = env.reset()['observation'].shape
+env = gym.make(args.ENV_NAME)
 
 # FetchSlide: ([:25]=state ([3:6]=achieved_goal), [-3:]=desired_goal)
 # FetchReach: ([:13]=state ([0:3]=achieved_goal), [-3:]=desired_goal)
 env = gym.wrappers.FlattenDictWrapper(
     env, dict_keys=['observation', 'desired_goal']) 
-# env = wrappers.Monitor(env, '/tmp/{}'.format(ENV_NAME), force=True)
-# print(env.observation_space.shape)
-np.random.seed(123)
-env.seed(123)
+
+if(args.monitor):
+	env = wrappers.Monitor(env, '/tmp/{}'.format(ENV_NAME), force=True)
+
+np.random.seed(args.seed)
+env.seed(args.seed)
+
 assert len(env.action_space.shape) == 1
 nb_actions = env.action_space.shape[0]
 
-# Next, we build a very simple model.
+# Actor model
 actor = Sequential()
 actor.add(Flatten(input_shape=(1,) + env.observation_space.shape))		# (observation_space.shape = (25,) )
 actor.add(Dense(400))
@@ -61,6 +81,7 @@ actor.add(Dense(nb_actions))
 actor.add(Activation('tanh'))
 # print(actor.summary())
 
+# Crtic Model
 action_input = Input(shape=(nb_actions,), name='action_input')
 observation_input = Input(shape=(1,) + env.observation_space.shape, name='observation_input')
 flattened_observation = Flatten()(observation_input)
@@ -76,10 +97,10 @@ critic = Model(inputs=[action_input, observation_input], outputs=x)
 
 ## Important Hyperparameters: alpha, beta, limit, batch_size, delta_clip, K
 
-if(HER==True and PER==False):
-	memory = NonSequentialMemory(limit=50000, window_length=1)
-elif(HER==True and PER==True):
-	memory = PrioritisedNonSequentialMemory(limit=50000, alpha=0.7, beta=0.5, window_length=1) ## 'proportional' priority replay implementation
+if(args.HER==True and args.PER==False):
+	memory = NonSequentialMemory(limit=args.memory_size, window_length=1)
+elif(args.HER==True and args.PER==True):
+	memory = PrioritisedNonSequentialMemory(limit=args.memory_size, alpha=args.alpha, beta=args.beta, window_length=1) ## 'proportional' priority replay implementation
 else:
 	print("\nRun vanilla ddpg_mujoco.py for no PER or HER!")
 	sys.exit(1)
@@ -87,28 +108,34 @@ random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.15, mu=0., sig
 
 ## WARNING: make sure memory_interval is 1 for HER to work 
 agent = DDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=action_input,
-                  memory=memory, nb_steps_warmup_critic=1000, nb_steps_warmup_actor=1000, batch_size=32, delta_clip=np.inf,
-                  random_process=random_process, gamma=.99, target_model_update=1e-3, do_HER=HER, K=K, HER_strategy='future',
-                  do_PER=PER, epsilon=1e-4, processor=MujocoProcessor())
-agent.compile([Adam(lr=5e-4), Adam(lr=1e-3)], metrics=['mae'])
+                  memory=memory, nb_steps_warmup_critic=1000, nb_steps_warmup_actor=1000, batch_size=args.batch_size,
+                  delta_clip=args.delta_clip, random_process=random_process, gamma=args.gamma,
+                  target_model_update=args.soft_update, do_HER=args.HER, K=args.K, HER_strategy=args.her_strategy,
+                  do_PER=args.PER, epsilon=1e-4, processor=MujocoProcessor())
+agent.compile([Adam(lr=args.actor_lr), Adam(lr=args.critic_lr)], metrics=['mae'])
 
-# Okay, now it's time to learn something! We visualize the training here for show, but this
-# slows down training quite a lot. You can always safely abort the training prematurely using
-# Ctrl + C.
-# file_interval: episode interval before data dump
-if(HER==True and PER==False):
-	save_data_path_local = 'HER/'+ENV_NAME+'.json'
-elif(HER==True and PER==True):
-	save_data_path_local = 'PHER/'+ENV_NAME+'.json'
-agent.fit(env, nb_steps=1500000, visualize=False, verbose=1, save_data_path=save_data_path_local, file_interval=10000)	
+if(args.HER==True and args.PER==False):
+	print("\nTraining with Prioritised Hindsight Experience Replay\n")
+	save_data_path_local = 'HER/'+args.ENV_NAME+'.json'
+elif(args.HER==True and args.PER==True):
+	print("\nTraining with Hindsight Experience Replay\n")
+	save_data_path_local = 'PHER/'+args.ENV_NAME+'.json'
+		
+""" Start Training (You can always safely abort the training prematurely using Ctrl + C, *once* ) """
+agent.fit(env, nb_steps=args.nb_train_steps, visualize=False, verbose=1, save_data_path=save_data_path_local, file_interval=args.file_interval, nb_max_episode_steps=args.max_step_episode)	
 
 # After training is done, we save the final weights and plot the training graph.
-if(HER==True and PER==False):
-	agent.save_weights('HER/ddpg_{}_weights.h5f'.format(ENV_NAME), overwrite=True)
-	plot_af(file_path='HER/'+ENV_NAME+'.json',save_file_name='HER/'+ENV_NAME+'.png')
-elif(HER==True and PER==True):
-	agent.save_weights('PHER/ddpg_{}_weights.h5f'.format(ENV_NAME), overwrite=True)
-	plot_af(file_path='PHER/'+ENV_NAME+'.json',save_file_name='PHER/'+ENV_NAME+'.png')
+try:
+	if(args.HER==True and args.PER==False):
+		agent.save_weights('HER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
+		plot_af(file_path='HER/'+ENV_NAME+'.json',save_file_name='HER/'+args.ENV_NAME+'.png')
+	elif(args.HER==True and args.PER==True):
+		agent.save_weights('PHER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
+		plot_af(file_path='PHER/'+args.ENV_NAME+'.json',save_file_name='PHER/'+args.ENV_NAME+'.png')
+except KeyboardInterrupt:
+	pass
 
 # Finally, evaluate our algorithm for 5 episodes.
-agent.test(env, nb_episodes=5, visualize=True, nb_max_episode_steps=200)
+agent.test(env, nb_episodes=args.nb_test_episodes, visualize=True, nb_max_episode_steps=args.max_step_episode)	
+
+
