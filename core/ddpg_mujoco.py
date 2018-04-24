@@ -10,10 +10,10 @@ from keras.optimizers import Adam
 import sys
 # sys.path.append('/Users/ojasjoshi/Desktop/distributive-prioritised-hindsight-experience-replay/tests/keras-rl/')
 
-from utils.processors import WhiteningNormalizerProcessor
-from utils.agents import DDPGAgent
-from utils.memory import NonSequentialMemory, PrioritisedNonSequentialMemory	
-from utils.random import OrnsteinUhlenbeckProcess
+from rl.processors import WhiteningNormalizerProcessor
+from rl.agents import DDPGAgent
+from rl.memory import NonSequentialMemory, PrioritisedNonSequentialMemory	
+from rl.random import OrnsteinUhlenbeckProcess
 from check_json import plot_af
 
 class MujocoProcessor(WhiteningNormalizerProcessor):
