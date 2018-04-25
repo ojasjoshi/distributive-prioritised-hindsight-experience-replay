@@ -7,25 +7,6 @@ For code specific readme check examples
 [![License](https://img.shields.io/github/license/mashape/apistatus.svg?maxAge=2592000)](https://github.com/keras-rl/keras-rl/blob/master/LICENSE)
 [![Join the chat at https://gitter.im/keras-rl/Lobby](https://badges.gitter.im/keras-rl/Lobby.svg)](https://gitter.im/keras-rl/Lobby)
 
-
-## Citing
-If you use `keras-rl` in your research, you can cite it as follows:
-```bibtex
-@misc{plappert2016kerasrl,
-    author = {Matthias Plappert},
-    title = {keras-rl},
-    year = {2016},
-    publisher = {GitHub},
-    journal = {GitHub repository},
-    howpublished = {\url{https://github.com/keras-rl/keras-rl}},
-}
-```
-
-
-## Acknowledgments
-The foundation for this library was developed during my work at the [High Performance Humanoid Technologies (H²T)](https://h2t.anthropomatik.kit.edu/) lab at the [Karlsruhe Institute of Technology (KIT)](https://kit.edu).
-It has since been adapted to become a general-purpose library.
-
 ## References
 1. *Playing Atari with Deep Reinforcement Learning*, Mnih et al., 2013
 2. *Human-level control through deep reinforcement learning*, Mnih et al., 2015
