@@ -1,15 +1,12 @@
-# distributive-prioritised-hindsight-experience-replay
-Towards faster convergence in multi-goal, sparse rewards Reinforcement Learning settings
+# Towards faster convergence in multi-goal, sparse rewards Reinforcement Learning settings
+Destributive Prioritised Hindsight Experience Replay
+
 
 Collaborators:
 Ojas Joshi
 
-
-Focussing on: 
-
 Validation Environment: 'FetchReach-v0' 
-Test Environment: 'FetchPush-v0' 
-
+Test Environment: OpenAI Robotics Environments
 
 # General Hyper-Parameters:
 - ENV_NAME = 'FetchSlide-v0'/'FetchPush-v0'/'FetchPickAndPlace-v0'/'FetchReach-v0' (if using FetchReach-v0, change ddpg.py/line 393 &ddpg.py/line 388 as per instructions of the function)
