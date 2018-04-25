@@ -1,7 +1,6 @@
-# CODE REFERENCED AND EDITTED OVER KERAS-RL Repository
-For code specific readme check examples
-
 # Deep Reinforcement Learning for Keras
+
+# CODE REFERENCED AND EDITTED OVER KERAS-RL Repository
 [![Build Status](https://api.travis-ci.org/keras-rl/keras-rl.svg?branch=master)](https://travis-ci.org/keras-rl/keras-rl)
 [![Documentation](https://readthedocs.org/projects/keras-rl/badge/)](http://keras-rl.readthedocs.io/)
 [![License](https://img.shields.io/github/license/mashape/apistatus.svg?maxAge=2592000)](https://github.com/keras-rl/keras-rl/blob/master/LICENSE)
