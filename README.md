@@ -37,7 +37,9 @@ Test Environment: 'FetchPush-v0'
 Instructions:
 
 General:
-- After setting the hyperparameters, run ddpg_mujoco.py
+- Set the permission of .sh file by doing: chmod u+x train.sh
+- Set the hyperparameters in the train.sh file accordingly
+- After setting the hyperparameters, run ./train.sh
 - To stop training, press Ctrl+C at any point. (Try stopping after 10000 steps)
 - The code goes to plotting. (if dont want that press Ctrl+C again)
 - The code goes to testing 5 episodes (default) implementation

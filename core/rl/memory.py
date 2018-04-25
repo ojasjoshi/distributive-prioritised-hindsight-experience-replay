@@ -398,6 +398,8 @@ class PrioritisedRingBuffer(object):
         
         """ TODO: remove if no assertion error in future """
         assert len(self.heap_data)==self.length
+        if(self.overflow==1):                   # to check if after full memory, it stays full
+            assert self.length == self.maxlen
 
         if self.length < self.maxlen:
             # We have space, simply increase the length.

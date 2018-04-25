@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import numpy as np
 import sys
 import argparse
@@ -25,8 +27,12 @@ def parse_arguments():
 	parser = argparse.ArgumentParser()
 	""" WARNING: With env, change ddpg.py/add_HER function accordingly """
 	parser.add_argument('--env', dest='ENV_NAME',type=str, default='FetchPush-v0',help="Environment Name")
-	parser.add_argument('--her', dest='HER',type=bool, default=True,help="Do Hindsight Experience Replay")
-	parser.add_argument('--per', dest='PER',type=bool, default=True,help="Do Prioritised Experience Replay")
+	parser.add_argument('--her', dest='HER', action='store_true', help="Do Hindsight Experience Replay")
+	parser.add_argument('--no-her', dest='HER', action='store_false', help="Do not do Hindsight Experience Replay")
+	parser.set_defaults(HER=True)
+	parser.add_argument('--per', dest='PER', action='store_true', help="Do Prioritised Experience Replay")
+	parser.add_argument('--no-per', dest='PER', action='store_false', help="Do not do Prioritised Experience Replay")
+	parser.set_defaults(PER=True)
 	parser.add_argument('--k', dest='K',type=int, default=4,help="HER parameter")
 	parser.add_argument('--her_strategy', dest='her_strategy',type=str, default='future',help="HER strategy")
 	parser.add_argument('--batch_size', dest='batch_size',type=int, default=64,help="Batch Size")
@@ -41,10 +47,17 @@ def parse_arguments():
 	parser.add_argument('--file_interval', dest='file_interval',type=int, default=10000,help="Data save interval")
 	parser.add_argument('--nb_train_steps', dest='nb_train_steps',type=int, default=200000,help="Number of training steps")
 	parser.add_argument('--nb_test_episodes', dest='nb_test_episodes',type=int, default=5,help="Number of test episodes")
-	parser.add_argument('--monitor', dest='monitor',type=int, default=False, help="Turn on monitor")
+	parser.add_argument('--monitor', dest='monitor',type=bool, default=False, help="Turn on monitor")
 	parser.add_argument('--seed', dest='seed',type=int, default=123, help="Seed")
 	parser.add_argument('--delta_clip', dest='delta_clip',type=float, default=np.inf, help="Huber loss delta clip")
-
+	parser.add_argument('--no-train', dest='train', action='store_false', help="Only plot stored json")
+	parser.add_argument('--train', dest='train', action='store_true', help="Only plot stored json")
+	parser.set_defaults(train=True)
+	parser.add_argument('--pretrained', dest='pretrained', action='store_true', help="load pretrained model")
+	parser.set_defaults(pretrained=False)
+	parser.add_argument('--actor_weights_path', dest='actor_weights_path',type=str, default='None',help="Use pretrained actor")
+	parser.add_argument('--critic_weights_path', dest='critic_weights_path',type=str, default='None',help="Use pretrained critic")
+	
 	return parser.parse_args()
 
 """ TODO: delta_clip?, rank-based PER, check MujocoProcessor """
@@ -62,7 +75,7 @@ env = gym.wrappers.FlattenDictWrapper(
     env, dict_keys=['observation', 'desired_goal']) 
 
 if(args.monitor):
-	env = wrappers.Monitor(env, '/tmp/{}'.format(ENV_NAME), force=True)
+	env = wrappers.Monitor(env, '/tmp/{}'.format(args.ENV_NAME), force=True)
 
 np.random.seed(args.seed)
 env.seed(args.seed)
@@ -70,6 +83,7 @@ env.seed(args.seed)
 assert len(env.action_space.shape) == 1
 nb_actions = env.action_space.shape[0]
 
+# trained_model = keras.models.load_model(args.model_config_path_trained,custom_objects={'reinforce_loss': reinforce_loss})
 # Actor model
 actor = Sequential()
 actor.add(Flatten(input_shape=(1,) + env.observation_space.shape))		# (observation_space.shape = (25,) )
@@ -96,13 +110,18 @@ critic = Model(inputs=[action_input, observation_input], outputs=x)
 # print(critic.summary())
 
 ## Important Hyperparameters: alpha, beta, limit, batch_size, delta_clip, K
+if(args.pretrained):
+	print("Using Pretrained model...")
+	actor.load_weights(args.actor_weights_path, by_name=False)
+	critic.load_weights(args.critic_weights_path, by_name=False)
 
-if(args.HER==True and args.PER==False):
+
+if(args.PER==False):
 	memory = NonSequentialMemory(limit=args.memory_size, window_length=1)
-elif(args.HER==True and args.PER==True):
+elif(args.PER==True):
 	memory = PrioritisedNonSequentialMemory(limit=args.memory_size, alpha=args.alpha, beta=args.beta, window_length=1) ## 'proportional' priority replay implementation
 else:
-	print("\nRun vanilla ddpg_mujoco.py for no PER or HER!")
+	print("\nRun vanilla_keras_rl/keras-rl/examples/ddpg_mujoco.py for no PER or HER!")
 	sys.exit(1)
 random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.15, mu=0., sigma=.1)
 
@@ -115,27 +134,38 @@ agent = DDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_acti
 agent.compile([Adam(lr=args.actor_lr), Adam(lr=args.critic_lr)], metrics=['mae'])
 
 if(args.HER==True and args.PER==False):
-	print("\nTraining with Prioritised Hindsight Experience Replay\n")
-	save_data_path_local = 'HER/'+args.ENV_NAME+'.json'
-elif(args.HER==True and args.PER==True):
 	print("\nTraining with Hindsight Experience Replay\n")
+	save_data_path_local = 'HER/'+args.ENV_NAME+'.json'
+elif(args.HER==False and args.PER==True):
+	print("\nTraining with Prioritised Experience Replay\n")
+	save_data_path_local = 'PER/'+args.ENV_NAME+'.json'
+elif(args.HER==True and args.PER==True):
+	print("\nTraining with Prioritised Hindsight Experience Replay\n")
 	save_data_path_local = 'PHER/'+args.ENV_NAME+'.json'
-		
-""" Start Training (You can always safely abort the training prematurely using Ctrl + C, *once* ) """
-agent.fit(env, nb_steps=args.nb_train_steps, visualize=False, verbose=1, save_data_path=save_data_path_local, file_interval=args.file_interval, nb_max_episode_steps=args.max_step_episode)	
+
+if(args.train):
+	""" Start Training (You can always safely abort the training prematurely using Ctrl + C, *once* ) """
+	agent.fit(env, nb_steps=args.nb_train_steps, visualize=False, verbose=1, save_data_path=save_data_path_local, file_interval=args.file_interval, nb_max_episode_steps=args.max_step_episode)	
 
 # After training is done, we save the final weights and plot the training graph.
 try:
 	if(args.HER==True and args.PER==False):
-		agent.save_weights('HER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
-		plot_af(file_path='HER/'+ENV_NAME+'.json',save_file_name='HER/'+args.ENV_NAME+'.png')
+		if(args.train):
+			agent.save_weights('HER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
+		plot_af(file_path='HER/'+args.ENV_NAME+'.json',save_file_name='HER/'+args.ENV_NAME+'.png')
+	elif(args.HER==False and args.PER==True):
+		if(args.train):
+			agent.save_weights('PER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
+		plot_af(file_path='PER/'+args.ENV_NAME+'.json',save_file_name='PER/'+args.ENV_NAME+'.png')
 	elif(args.HER==True and args.PER==True):
-		agent.save_weights('PHER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
+		if(args.train):
+			agent.save_weights('PHER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
 		plot_af(file_path='PHER/'+args.ENV_NAME+'.json',save_file_name='PHER/'+args.ENV_NAME+'.png')
 except KeyboardInterrupt:
 	pass
 
-# Finally, evaluate our algorithm for 5 episodes.
-agent.test(env, nb_episodes=args.nb_test_episodes, visualize=True, nb_max_episode_steps=args.max_step_episode)	
+if(args.train):
+	# Finally, evaluate our algorithm for 5 episodes.
+	agent.test(env, nb_episodes=args.nb_test_episodes, visualize=True, nb_max_episode_steps=args.max_step_episode)	
 
 

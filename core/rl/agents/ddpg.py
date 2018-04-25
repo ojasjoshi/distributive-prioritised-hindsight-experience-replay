@@ -3,6 +3,7 @@ from collections import deque
 import os
 import warnings
 
+import random
 import numpy as np
 import keras.backend as K
 import keras.optimizers as optimizers
@@ -314,7 +315,8 @@ class DDPGAgent(Agent):
                     else:
                         state0_batch_with_action = [state0_batch]
                     state0_batch_with_action.insert(self.critic_action_input_idx, input_actions)
-                    input_q_values = self.target_critic.predict_on_batch(state0_batch_with_action).flatten()
+                    """ IMPORTANT: input_q_values predicted on critic network not target_critic """
+                    input_q_values = self.critic.predict_on_batch(state0_batch_with_action).flatten()
                     assert input_q_values.shape == (self.batch_size,)
 
                 # Find target q_values
@@ -384,7 +386,9 @@ class DDPGAgent(Agent):
             if(strategy=='episode'):
                 sample_index = 0
             for k in range(self.K):
-                new_goal_idx = np.random.randint(sample_index,len(self.current_episode_experience))
+                """ random.randint is too slow check: (https://www.reddit.com/r/Python/comments/jn0bb/randomrandint_vs_randomrandom_why_is_one_15x/) """
+                # new_goal_idx = np.random.randint(sample_index,len(self.current_episode_experience))
+                new_goal_idx = random.sample(range(sample_index,len(self.current_episode_experience)),1)[0]
                 new_goal = deepcopy(self.current_episode_experience[new_goal_idx][2][3:6])    # randomly sampled substitute goal from states seen after the current transition
                 
                 # update the original transition
