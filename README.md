@@ -39,7 +39,7 @@ General:
 - After setting the hyperparameters, run ./train.sh
 - To stop training, press Ctrl+C at any point. (Try stopping after 10000 steps)
 - The code then plots and tests 5 episodes (default) of the learned model
-- To resume code pretrained weights, use argument --pretrained
+- To resume training from pretrained weights, use argument --pretrained
 
 Extra:
 - Keep check_json.py in the same folder as ddpg.py (in general keep the entire folder strucuture unchanges)
