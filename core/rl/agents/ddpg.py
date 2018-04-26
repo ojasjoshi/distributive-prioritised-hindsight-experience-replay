@@ -12,7 +12,7 @@ from copy import deepcopy
 from rl.core import Agent
 from rl.random import OrnsteinUhlenbeckProcess
 from rl.util import *
-
+from tensorflow.python.ops import math_ops, clip_ops
 
 def mean_q(y_true, y_pred):
     return K.mean(K.max(y_pred, axis=-1))
@@ -24,11 +24,11 @@ def mean_q(y_true, y_pred):
 class DDPGAgent(Agent):
     """Write me
     """
-    def __init__(self, nb_actions, actor, critic, critic_action_input, memory,
+    def __init__(self, nb_actions, actor, critic, pretanh_model, critic_action_input, memory,
                  gamma=.99, batch_size=32, nb_steps_warmup_critic=1000, nb_steps_warmup_actor=1000,
                  train_interval=1, memory_interval=1, delta_range=None, delta_clip=np.inf,
                  random_process=None, custom_model_objects={}, target_model_update=.001, do_HER=True, K=4, HER_strategy='future',
-                 do_PER=True, epsilon = 1e-4, **kwargs):
+                 do_PER=True, epsilon = 1e-4, pretanh_weight=0.0,**kwargs):
         if hasattr(actor.output, '__len__') and len(actor.output) > 1:
             raise ValueError('Actor "{}" has more than one output. DDPG expects an actor that has a single output.'.format(actor))
         if hasattr(critic.output, '__len__') and len(critic.output) > 1:
@@ -70,6 +70,7 @@ class DDPGAgent(Agent):
         # Related objects.
         self.actor = actor
         self.critic = critic
+        self.pretanh_model = pretanh_model
         self.critic_action_input = critic_action_input
         self.critic_action_input_idx = self.critic.input.index(critic_action_input)     # (index of the input layer during new batch)(?)
         self.memory = memory
@@ -84,6 +85,7 @@ class DDPGAgent(Agent):
         self.strategy = HER_strategy
         ## (TODO: try to take it into memory.py/PER)
         self.epsilon = epsilon
+        self.pretanh_weight = pretanh_weight
 
     @property
     def uses_learning_phase(self):
@@ -145,9 +147,10 @@ class DDPGAgent(Agent):
         combined_inputs[self.critic_action_input_idx] = self.actor(critic_inputs)
 
         combined_output = self.critic(combined_inputs)
+        pretanh_output = self.pretanh_model(critic_inputs)
 
         updates = actor_optimizer.get_updates(
-            params=self.actor.trainable_weights, loss=-K.mean(combined_output))  # (gradient updates for actor)
+            params=self.actor.trainable_weights, loss=-K.mean(combined_output)+self.pretanh_weight*K.sum(K.square(pretanh_output)))  # (gradient updates for actor)
         if self.target_model_update < 1.:
             # Include soft target model updates.
             updates += get_soft_target_model_updates(self.target_actor, self.actor, self.target_model_update)
@@ -237,6 +240,14 @@ class DDPGAgent(Agent):
         if self.processor is not None:
             names += self.processor.metrics_names[:]
         return names
+
+    def process_targets(self, targets):
+        lb = -(1/(1-self.gamma))
+        ub = 0
+        for idx in range(len(targets)):
+            targets[idx] = np.clip(targets[idx],lb,ub)
+
+        return targets
 
     def backward(self, reward, nextstate, info, env, terminal=False):
         # Store most recent experience in memory.
@@ -336,9 +347,9 @@ class DDPGAgent(Agent):
                 discounted_reward_batch *= terminal1_batch
                 assert discounted_reward_batch.shape == reward_batch.shape
                 targets = (reward_batch + discounted_reward_batch).reshape(self.batch_size, 1)
+                targets = self.process_targets(targets)
 
                 if(self.do_PER):
-                    """ Prioritised Experience Replay Implementation """
                     # update the priorities of transitions with TD errors
                     TD_errors = abs(targets - np.expand_dims(input_q_values,axis=1)).flatten() + self.epsilon*np.ones(shape=(self.batch_size,))
                     self.memory.update_priorities(TD_errors, experience_idxs)

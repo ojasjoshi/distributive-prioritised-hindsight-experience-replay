@@ -17,11 +17,31 @@ from rl.processors import WhiteningNormalizerProcessor
 from rl.agents import DDPGAgent
 from rl.memory import NonSequentialMemory, PrioritisedNonSequentialMemory	
 from rl.random import OrnsteinUhlenbeckProcess
-from check_json import plot_af
+from rl.check_json import plot_af
+import keras.backend as K
+
+
+class Regulalizer(object):
+	def __init__(self, regularise_type):
+		self.type = regularise_type
+
+	def regularize(self, weight_matrix):
+		if(self.type == 'L1'):
+			return 0.01 * K.sum(K.abs(weight_matrix))
+		elif(self.type == 'L2'):
+			return 0.01 * K.sum(K.square(weight_matrix))
+		else:
+			return None
+
+def l1(weight_matrix):
+	return 0.01 * K.sum(K.abs(weight_matrix))
+
+def l2(weight_matrix):
+	return 0.01 * K.sum(K.square(weight_matrix))
 
 class MujocoProcessor(WhiteningNormalizerProcessor):
     def process_action(self, action):
-        return np.clip(action, -1., 1.)
+        return np.clip(action, -5., 5.)
 
 def parse_arguments():
 	parser = argparse.ArgumentParser()
@@ -57,7 +77,11 @@ def parse_arguments():
 	parser.set_defaults(pretrained=False)
 	parser.add_argument('--actor_weights_path', dest='actor_weights_path',type=str, default='None',help="Use pretrained actor")
 	parser.add_argument('--critic_weights_path', dest='critic_weights_path',type=str, default='None',help="Use pretrained critic")
-	
+	parser.add_argument('--actor_gradient_clip', dest='actor_gradient_clip',type=float, default=np.inf, help="Actor gradient norm clipping")
+	parser.add_argument('--critic_gradient_clip', dest='critic_gradient_clip',type=float, default=np.inf, help="Critic gradient norm clipping")
+	parser.add_argument('--pretanh_weight', dest='pretanh_weight',type=float, default=0.0, help="Pretanh regularization for decaying gradients")
+	parser.add_argument('--regularizer', dest='regularizer_type',type=str, default='L1',help="Regularizer type L1 or L2")
+
 	return parser.parse_args()
 
 """ TODO: delta_clip?, rank-based PER, check MujocoProcessor """
@@ -83,26 +107,34 @@ env.seed(args.seed)
 assert len(env.action_space.shape) == 1
 nb_actions = env.action_space.shape[0]
 
-# trained_model = keras.models.load_model(args.model_config_path_trained,custom_objects={'reinforce_loss': reinforce_loss})
-# Actor model
-actor = Sequential()
-actor.add(Flatten(input_shape=(1,) + env.observation_space.shape))		# (observation_space.shape = (25,) )
-actor.add(Dense(400))
-actor.add(Activation('relu'))
-actor.add(Dense(300))
-actor.add(Activation('relu'))
-actor.add(Dense(nb_actions))
-actor.add(Activation('tanh'))
-# print(actor.summary())
+""" TODO: Implement regularizer object """
+regularizer = Regulalizer(args.regularizer_type)
+
+In = Input(shape=(1,) + env.observation_space.shape)
+x = Flatten()(In)
+x = Dense(64,kernel_regularizer=l1)(x)
+x = Activation('relu')(x)
+x = Dense(64,kernel_regularizer=l1)(x)
+x = Activation('relu')(x)
+x = Dense(64,kernel_regularizer=l1)(x)
+x = Activation('relu')(x)
+pretanh = Dense(nb_actions)(x)
+Out = Activation('tanh')(pretanh)
+actor = Model(inputs=In,outputs=Out)
+
+#Pretanh model
+pretanh_model = Model(inputs=In, outputs=pretanh)
 
 # Crtic Model
 action_input = Input(shape=(nb_actions,), name='action_input')
 observation_input = Input(shape=(1,) + env.observation_space.shape, name='observation_input')
 flattened_observation = Flatten()(observation_input)
-x = Dense(400)(flattened_observation)
+x = Dense(64,kernel_regularizer=l1)(flattened_observation)
 x = Activation('relu')(x)
 x = Concatenate()([x, action_input])
-x = Dense(300)(x)
+x = Dense(64,kernel_regularizer=l1)(x)
+x = Activation('relu')(x)
+x = Dense(64,kernel_regularizer=l1)(x)
 x = Activation('relu')(x)
 x = Dense(1)(x)
 x = Activation('linear')(x)
@@ -126,12 +158,12 @@ else:
 random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.15, mu=0., sigma=.1)
 
 ## WARNING: make sure memory_interval is 1 for HER to work 
-agent = DDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=action_input,
+agent = DDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, pretanh_model=pretanh_model ,critic_action_input=action_input,
                   memory=memory, nb_steps_warmup_critic=1000, nb_steps_warmup_actor=1000, batch_size=args.batch_size,
                   delta_clip=args.delta_clip, random_process=random_process, gamma=args.gamma,
                   target_model_update=args.soft_update, do_HER=args.HER, K=args.K, HER_strategy=args.her_strategy,
-                  do_PER=args.PER, epsilon=1e-4, processor=MujocoProcessor())
-agent.compile([Adam(lr=args.actor_lr), Adam(lr=args.critic_lr)], metrics=['mae'])
+                  do_PER=args.PER, epsilon=1e-4, processor=MujocoProcessor(), pretanh_weight=args.pretanh_weight)
+agent.compile([Adam(lr=args.actor_lr, clipnorm=args.actor_gradient_clip), Adam(lr=args.critic_lr, clipnorm=args.critic_gradient_clip)], metrics=['mae'])
 
 if(args.HER==True and args.PER==False):
 	print("\nTraining with Hindsight Experience Replay\n")

@@ -262,6 +262,8 @@ class DQNAgent(AbstractDQNAgent):
         # Train the network on a single stochastic batch.
         if self.step > self.nb_steps_warmup and self.step % self.train_interval == 0:
             experiences = self.memory.sample(self.batch_size)
+            print("Experience Size = ",len(experiences))
+
             assert len(experiences) == self.batch_size
 
             # Start by extracting the necessary parameters (we use a vectorized implementation).
