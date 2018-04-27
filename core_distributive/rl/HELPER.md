@@ -1,0 +1,1 @@
+1) Using sample_weight for train_on_batch: { https://stackoverflow.com/questions/43459317/keras-class-weight-vs-sample-weights-in-the-fit-generator, https://github.com/keras-team/keras/blob/master/keras/engine/training.py, https://keras.io/models/sequential/#fit_generator, https://keras.io/models/sequential/ }
