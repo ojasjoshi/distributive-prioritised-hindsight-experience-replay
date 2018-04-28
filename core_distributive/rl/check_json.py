@@ -6,7 +6,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-EPOCH = 50
+EPOCH = 10
 
 def __get__data(file_path=None, print_data=False):
 	

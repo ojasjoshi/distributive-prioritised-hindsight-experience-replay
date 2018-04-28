@@ -400,12 +400,12 @@ class DDPGAgent(Agent):
                 """ random.randint is too slow check: (https://www.reddit.com/r/Python/comments/jn0bb/randomrandint_vs_randomrandom_why_is_one_15x/) """
                 # new_goal_idx = np.random.randint(sample_index,len(self.current_episode_experience))
                 new_goal_idx = random.sample(range(sample_index,len(self.current_episode_experience)),1)[0]
-                new_goal = deepcopy(self.current_episode_experience[new_goal_idx][2][3:6])    # randomly sampled substitute goal from states seen after the current transition
+                new_goal = deepcopy(self.current_episode_experience[new_goal_idx][2][0:3])    # randomly sampled substitute goal from states seen after the current transition
                 
                 # update the original transition
                 her_curr_observation, curr_action, her_next_observation, _ , curr_terminal, info = self.current_episode_experience[t]
                 
-                her_achieved_goal = deepcopy(her_next_observation[3:6])
+                her_achieved_goal = deepcopy(her_next_observation[0:3])
                 her_next_observation = deepcopy(her_next_observation)
                 her_curr_observation = deepcopy(her_curr_observation)
 

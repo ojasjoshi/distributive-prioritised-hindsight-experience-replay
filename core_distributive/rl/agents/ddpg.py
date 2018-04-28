@@ -26,7 +26,7 @@ class DDPGAgent(Agent):
     """
     def __init__(self, nb_actions, actor, critic, actor1_critic, actor2_critic, pretanh_model, critic_action_input,
                  actor1_critic_action_input, actor2_critic_action_input, learner_memory, actor1_memory, actor2_memory,
-                 gamma=.99, batch_size=32, actor_batch_size=32, nb_steps_warmup_critic=1000, nb_steps_warmup_actor=1000, nb_steps_warmup_actor1=1000,
+                 gamma=.99, batch_size=64, actor_batch_size=32, nb_steps_warmup_critic=1000, nb_steps_warmup_actor=1000, nb_steps_warmup_actor1=1000,
                  nb_steps_warmup_actor2=1000, train_interval=1, sample_actor_interval=1, memory_interval=1, delta_range=None, delta_clip=np.inf,
                  random_process=None, custom_model_objects={}, target_model_update=.001, do_HER=True, K=4, HER_strategy='future',
                  do_PER=True, epsilon = 1e-4, pretanh_weight=0.0, actors_update_interval=100, **kwargs):
