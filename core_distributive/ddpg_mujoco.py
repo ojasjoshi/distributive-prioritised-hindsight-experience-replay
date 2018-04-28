@@ -196,7 +196,6 @@ if(args.PER==False):
 	memory = NonSequentialMemory(limit=args.memory_size, window_length=1)
 elif(args.PER==True):
 	memory = PrioritisedNonSequentialMemory(limit=args.memory_size, alpha=args.alpha, beta=args.beta, window_length=1) ## 'proportional' priority replay implementation
-	# if(args.distributive==True):
 	actor1_memory = PrioritisedNonSequentialMemory(limit=args.memory_size, alpha=args.alpha, beta=args.beta, window_length=1)
 	actor2_memory = PrioritisedNonSequentialMemory(limit=args.memory_size, alpha=args.alpha, beta=args.beta, window_length=1)
 else:

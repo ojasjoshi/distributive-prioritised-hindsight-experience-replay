@@ -138,7 +138,7 @@ class Agent(object):
                     # Obtain the initial observation by resetting the environment.
                     self.reset_states()
                     observation1 = deepcopy(env.reset())     
-                    observation2 = deepcopy(env.reset())     
+                    observation2 = deepcopy(env_1.reset())     
 
                     if self.actor_processor is not None:
                         observation1 = self.actor_processor.process_observation(observation1)
@@ -161,7 +161,7 @@ class Agent(object):
                             action2 = self.actor_processor.process_action(action2)
                         callbacks.on_action_begin(action1)
                         observation1, reward1, done1, info1 = env.step(action1)
-                        observation2, reward2, done2, info2 = env.step(action1)
+                        observation2, reward2, done2, info2 = env_1.step(action1)
                         observation1 = deepcopy(observation1)
                         observation2 = deepcopy(observation2)
                         if self.actor_processor is not None:
@@ -176,7 +176,7 @@ class Agent(object):
                             break
                         if done2:
                             warnings.warn('Env ended before {} random steps could be performed at the start. You should probably lower the `nb_max_start_steps` parameter.'.format(nb_random_start_steps))
-                            observation2 = deepcopy(env.reset())
+                            observation2 = deepcopy(env_1.reset())
                             if self.actor_processor is not None:
                                 observation2 = self.actor_processor.process_observation(observation2)
                             break
@@ -218,7 +218,7 @@ class Agent(object):
                         break
 
                 for _ in range(action_repetition):
-                    observation2, r2, done2, info2 = env.step(action2)
+                    observation2, r2, done2, info2 = env_1.step(action2)
                     observation2 = deepcopy(observation2)
                     if self.actor_processor is not None:
                         observation2, r2, done2, info2 = self.actor_processor.process_step(observation2, r2, done2, info2)
