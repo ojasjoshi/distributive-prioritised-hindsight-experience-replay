@@ -2,9 +2,8 @@
 # 1.a.
 # cd core/vanilla/keras-rl/examples
 cd core
-<<<<<<< HEAD
 python ddpg_mujoco.py
-=======
+
 ## 1.b.
 python ddpg_mujoco.py --env FetchReach-v0 --no-her --per --k 4 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001
 
@@ -21,10 +20,10 @@ python ddpg_mujoco.py --env FetchReach-v0 --her --no-per --k 4 --her_strategy fu
 python ddpg_mujoco.py --env FetchReach-v0 --her --no-per --k 4 --her_strategy future --batch_size 128 --memory_size 200000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001
 
 ## 4.a. **change ddpg.py accordingly** AYUSH (RUN THIS ONE BEFORE 4.b.)
-python ddpg_mujoco.py --env FetchPickandPlace-v0 --her --per --k 4 --her_strategy future --batch_size 128 --memory_size 150000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001 --delta_clip 500.0 --pretanh_weight 0.1 --critic_gradient_clip 5.0 --actor_gradient_clip 5.0 
+python ddpg_mujoco.py --env FetchPickandPlace-v0 --her --per --k 4 --her_strategy future --batch_size 128 --memory_size 150000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001 --delta_clip 500.0 --pretanh_weight 0.1 --critic_gradient_clip 5.0 --actor_gradient_clip 5.0
 
 ## 4.b. **change ddpg.py accordingly** ** add L1 regularisation in the model architechture** AYUSH
-python ddpg_mujoco.py --env FetchPickandPlace-v0 --her --per --k 4 --her_strategy future --batch_size 128 --memory_size 150000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001 
+python ddpg_mujoco.py --env FetchPickandPlace-v0 --her --per --k 4 --her_strategy future --batch_size 128 --memory_size 150000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001
 
 ## 5.a. OJAS
 python ddpg_mujoco.py --env FetchReach-v0 --her --no-per --k 8 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001
