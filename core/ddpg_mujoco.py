@@ -15,7 +15,7 @@ import sys
 
 from rl.processors import WhiteningNormalizerProcessor
 from rl.agents import DDPGAgent
-from rl.memory import NonSequentialMemory, PrioritisedNonSequentialMemory	
+from rl.memory import NonSequentialMemory, PrioritisedNonSequentialMemory
 from rl.random import OrnsteinUhlenbeckProcess
 from rl.check_json import plot_af
 import keras.backend as K
@@ -96,7 +96,7 @@ env = gym.make(args.ENV_NAME)
 # FetchSlide: ([:25]=state ([3:6]=achieved_goal), [-3:]=desired_goal)
 # FetchReach: ([:13]=state ([0:3]=achieved_goal), [-3:]=desired_goal)
 env = gym.wrappers.FlattenDictWrapper(
-    env, dict_keys=['observation', 'desired_goal']) 
+    env, dict_keys=['observation', 'desired_goal'])
 
 if(args.monitor):
 	env = wrappers.Monitor(env, '/tmp/{}'.format(args.ENV_NAME), force=True)
@@ -113,7 +113,8 @@ regularizer = Regulalizer(args.regularizer_type)
 In = Input(shape=(1,) + env.observation_space.shape)
 x = Flatten()(In)
 # x = Dense(64,kernel_regularizer=l1)(x)
-x = Dense(64)(xddx = Activation('relu')(x)
+x = Dense(64)
+x = Activation('relu')(x)
 # x = Dense(64,kernel_regularizer=l1)(x)
 x = Dense(64)(x)
 x = Activation('relu')(x)
@@ -162,7 +163,7 @@ else:
 	sys.exit(1)
 random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.15, mu=0., sigma=.1)
 
-## WARNING: make sure memory_interval is 1 for HER to work 
+## WARNING: make sure memory_interval is 1 for HER to work
 agent = DDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, pretanh_model=pretanh_model ,critic_action_input=action_input,
                   memory=memory, nb_steps_warmup_critic=1000, nb_steps_warmup_actor=1000, batch_size=args.batch_size,
                   delta_clip=args.delta_clip, random_process=random_process, gamma=args.gamma,
@@ -182,7 +183,7 @@ elif(args.HER==True and args.PER==True):
 
 if(args.train):
 	""" Start Training (You can always safely abort the training prematurely using Ctrl + C, *once* ) """
-	agent.fit(env, nb_steps=args.nb_train_steps, visualize=False, verbose=1, save_data_path=save_data_path_local, file_interval=args.file_interval, nb_max_episode_steps=args.max_step_episode)	
+	agent.fit(env, nb_steps=args.nb_train_steps, visualize=False, verbose=1, save_data_path=save_data_path_local, file_interval=args.file_interval, nb_max_episode_steps=args.max_step_episode)
 
 # After training is done, we save the final weights and plot the training graph.
 try:
@@ -203,6 +204,4 @@ except KeyboardInterrupt:
 
 if(args.train):
 	# Finally, evaluate our algorithm for 5 episodes.
-	agent.test(env, nb_episodes=args.nb_test_episodes, visualize=True, nb_max_episode_steps=args.max_step_episode)	
-
-
+	agent.test(env, nb_episodes=args.nb_test_episodes, visualize=True, nb_max_episode_steps=args.max_step_episode)
