@@ -43,7 +43,10 @@ python ddpg_mujoco.py --env FetchReach-v0 --her --per --k 4 --her_strategy futur
 python ddpg_mujoco.py --env FetchReach-v0 --her --per --k 8 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001
 
 ## 5.f. OJAS (check alpha, beta before running)
-python ddpg_mujoco.py --env FetchReach-v0 --her --per --k 4 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001 --alpha 0.5 --beta 0.5
+python ddpg_mujoco.py --env FetchReach-v0 --her --per --k 4 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001 --alpha 0.2 --beta 0.7
+
+## 5.g. OJAS
+python ddpg_mujoco.py --env FetchReach-v0 --her --per --k 4 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001 --alpha 0.9 --beta 0.2
 
 ## if training distributive
 cd core_distributive
