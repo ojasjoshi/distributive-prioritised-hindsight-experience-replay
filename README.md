@@ -1,5 +1,5 @@
 # Towards faster convergence in multi-goal, sparse rewards Reinforcement Learning settings
-Destributive Prioritised Hindsight Experience Replay
+# Distributive Prioritised Hindsight Experience Replay
 
 
 Collaborators:
