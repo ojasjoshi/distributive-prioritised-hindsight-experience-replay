@@ -113,7 +113,7 @@ regularizer = Regulalizer(args.regularizer_type)
 In = Input(shape=(1,) + env.observation_space.shape)
 x = Flatten()(In)
 # x = Dense(64,kernel_regularizer=l1)(x)
-x = Dense(64)
+x = Dense(64)(x)
 x = Activation('relu')(x)
 # x = Dense(64,kernel_regularizer=l1)(x)
 x = Dense(64)(x)
@@ -190,15 +190,18 @@ try:
 	if(args.HER==True and args.PER==False):
 		if(args.train):
 			agent.save_weights('HER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
-		plot_af(file_path='HER/'+args.ENV_NAME+'.json',save_file_name='HER/'+args.ENV_NAME+'.png')
+		plot_af(file_path='HER/'+args.ENV_NAME+'.json',save_file_name='HER/'+args.ENV_NAME+'.png',plot_what='success')
+		plot_af(file_path='HER/'+args.ENV_NAME+'.json',save_file_name='HER/'+args.ENV_NAME+'_loss.png',plot_what='loss')
 	elif(args.HER==False and args.PER==True):
 		if(args.train):
 			agent.save_weights('PER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
-		plot_af(file_path='PER/'+args.ENV_NAME+'.json',save_file_name='PER/'+args.ENV_NAME+'.png')
+		plot_af(file_path='PER/'+args.ENV_NAME+'.json',save_file_name='PER/'+args.ENV_NAME+'.png',plot_what='success')
+		plot_af(file_path='PER/'+args.ENV_NAME+'.json',save_file_name='PER/'+args.ENV_NAME+'_loss.png',plot_what='loss')
 	elif(args.HER==True and args.PER==True):
 		if(args.train):
 			agent.save_weights('PHER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
-		plot_af(file_path='PHER/'+args.ENV_NAME+'.json',save_file_name='PHER/'+args.ENV_NAME+'.png')
+		plot_af(file_path='PHER/'+args.ENV_NAME+'.json',save_file_name='PHER/'+args.ENV_NAME+'_success.png',plot_what='success')
+		plot_af(file_path='PHER/'+args.ENV_NAME+'.json',save_file_name='PHER/'+args.ENV_NAME+'_loss.png',plot_what='loss')
 except KeyboardInterrupt:
 	pass
 

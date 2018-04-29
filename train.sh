@@ -2,10 +2,10 @@
 # 1.a.
 # cd core/vanilla/keras-rl/examples
 cd core
-python ddpg_mujoco.py
+# python ddpg_mujoco.py
 #
 # ## 1.b.
-# python ddpg_mujoco.py --env FetchReach-v0 --no-her --per --k 4 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001
+python ddpg_mujoco.py --env FetchReach-v0 --no-her --per --k 4 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001
 #
 # ## 2.a. AYUSH
 # python ddpg_mujoco.py --env FetchReach-v0 --her --per --k 4 --her_strategy future --batch_size 128 --memory_size 75000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001
