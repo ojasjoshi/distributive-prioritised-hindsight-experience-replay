@@ -89,7 +89,13 @@ def parse_arguments():
 	parser.add_argument('--prioritised_actor', dest='prioritised_actor', action='store_true', help="Prioritised actors")
 	parser.set_defaults(prioritised_actor=False)
 	parser.add_argument('--actors_update_interval', dest='actors_update_interval',type=int, default=2, help="Actors hard update")
-	
+	parser.add_argument('--alpha_actor1', dest='alpha_actor1',type=float, default=0.7,help="Value of alpha PER between 0 and 1 for actor1")
+	parser.add_argument('--beta_actor1', dest='beta_actor1',type=float, default=0.5,help="Value of beta PER between 0 and 1 for actor1")
+	parser.add_argument('--alpha_actor2', dest='alpha_actor2',type=float, default=0.7,help="Value of alpha PER between 0 and 1 for actor2")
+	parser.add_argument('--beta_actor2', dest='beta_actor2',type=float, default=0.5,help="Value of beta PER between 0 and 1 for actor2")
+	parser.add_argument('--dynamic_actor_exploration', dest='dynamic_actor_exploration', action='store_true', help="Prioritised actors")
+	parser.set_defaults(dynamic_actor_exploration=False)
+
 	return parser.parse_args()
 
 """ TODO: rank-based PER, distributive """
@@ -208,8 +214,10 @@ else:
 assert args.actor_memory_size > args.actor_warmup_steps
 
 if(args.prioritised_actor):
-	actor1_memory = PrioritisedNonSequentialMemory(limit=args.actor_memory_size, alpha=args.alpha, beta=args.beta, window_length=1)
-	actor2_memory = PrioritisedNonSequentialMemory(limit=args.actor_memory_size, alpha=args.alpha, beta=args.beta, window_length=1)
+	actor1_memory = PrioritisedNonSequentialMemory(limit=args.actor_memory_size, alpha=args.alpha_actor1, beta=args.beta_actor1, 
+		window_length=1, dynamic_actor_exploration=args.dynamic_actor_exploration)
+	actor2_memory = PrioritisedNonSequentialMemory(limit=args.actor_memory_size, alpha=args.alpha_actor2, beta=args.beta_actor2, 
+		window_length=1, dynamic_actor_exploration=args.dynamic_actor_exploration)
 else:
 	actor1_memory = NonSequentialMemory(limit=args.actor_memory_size, window_length=1)
 	actor2_memory = NonSequentialMemory(limit=args.actor_memory_size, window_length=1)
@@ -219,9 +227,10 @@ random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.15, mu=0., sig
 ## WARNING: make sure memory_interval is 1 for HER to work 
 agent = DDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, actor1_critic=critic1, actor2_critic=critic2, pretanh_model=pretanh_model , critic_action_input=action_input,
                   actor1_critic_action_input=action_input1, actor2_critic_action_input=action_input2, learner_memory=memory, actor1_memory=actor1_memory, actor2_memory=actor2_memory, 
-                  nb_steps_warmup_critic=1000, nb_steps_warmup_actor=1000, nb_steps_warmup_actor1=args.actor_warmup_steps, nb_steps_warmup_actor2=args.actor_warmup_steps, batch_size=args.batch_size, actor_batch_size=args.actor_batch_size, delta_clip=args.delta_clip, random_process=random_process, 
-                  gamma=args.gamma, target_model_update=args.soft_update, do_HER=args.HER, K=args.K, HER_strategy=args.her_strategy, do_PER=args.PER, epsilon=1e-4, 
-                  pretanh_weight=args.pretanh_weight, actors_update_interval=args.actors_update_interval, prioritised_actors=args.prioritised_actor, actor_processor=MujocoProcessor(), learner_processor=MujocoProcessor())
+                  nb_steps_warmup_critic=1000, nb_steps_warmup_actor=1000, nb_steps_warmup_actor1=args.actor_warmup_steps, nb_steps_warmup_actor2=args.actor_warmup_steps, batch_size=args.batch_size,
+                  actor_batch_size=args.actor_batch_size, delta_clip=args.delta_clip, random_process=random_process, gamma=args.gamma, target_model_update=args.soft_update, 
+                  do_HER=args.HER, K=args.K, HER_strategy=args.her_strategy, do_PER=args.PER, epsilon=1e-4, pretanh_weight=args.pretanh_weight, actors_update_interval=args.actors_update_interval, 
+                  prioritised_actors=args.prioritised_actor, actor_processor=MujocoProcessor(), learner_processor=MujocoProcessor())
 agent.compile([Adam(lr=args.actor_lr, clipnorm=args.actor_gradient_clip), Adam(lr=args.critic_lr, clipnorm=args.critic_gradient_clip)], metrics=['mae'])
 
 if(args.HER==True and args.PER==False):
@@ -236,22 +245,26 @@ elif(args.HER==True and args.PER==True):
 
 if(args.train):
 	""" Start Training (You can always safely abort the training prematurely using Ctrl + C, *once* ) """
-	agent.fit(env, env_1=env_1, nb_steps=args.nb_train_steps, visualize=False, verbose=1, save_data_path=save_data_path_local, file_interval=args.file_interval, nb_max_episode_steps=args.max_step_episode)	
+	agent.fit(env, env_1=env_1, nb_steps=args.nb_train_steps, visualize=False, verbose=1, save_data_path=save_data_path_local, file_interval=args.file_interval, 
+		nb_max_episode_steps=args.max_step_episode, dynamic_actor_exploration=args.dynamic_actor_exploration, update_exploration_interval=5000)	
 
 # After training is done, we save the final weights and plot the training graph.
 try:
 	if(args.HER==True and args.PER==False):
 		if(args.train):
 			agent.save_weights('HER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
-		plot_af(file_path='HER/'+args.ENV_NAME+'.json',save_file_name='HER/'+args.ENV_NAME+'.png')
+		plot_af(file_path='HER/'+args.ENV_NAME+'.json',save_file_name='HER/'+args.ENV_NAME+'.png', plot_what='accuracy')
+		plot_af(file_path='HER/'+args.ENV_NAME+'.json',save_file_name='HER/'+args.ENV_NAME+'.png', plot_what='loss')
 	elif(args.HER==False and args.PER==True):
 		if(args.train):
 			agent.save_weights('PER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
 		plot_af(file_path='PER/'+args.ENV_NAME+'.json',save_file_name='PER/'+args.ENV_NAME+'.png')
+		plot_af(file_path='PER/'+args.ENV_NAME+'.json',save_file_name='PER/'+args.ENV_NAME+'.png', plot_what='loss')
 	elif(args.HER==True and args.PER==True):
 		if(args.train):
 			agent.save_weights('PHER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
 		plot_af(file_path='PHER/'+args.ENV_NAME+'.json',save_file_name='PHER/'+args.ENV_NAME+'.png')
+		plot_af(file_path='PHER/'+args.ENV_NAME+'.json',save_file_name='PHER/'+args.ENV_NAME+'.png', plot_what='lossr')
 except KeyboardInterrupt:
 	pass
 

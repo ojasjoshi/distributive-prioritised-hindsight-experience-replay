@@ -390,6 +390,9 @@ class PrioritisedRingBuffer(object):
 
         return self.heap_data[idx]
 
+    def reset_ringbuffer(self):
+        self.__init__(self.maxlen)
+
     def append(self, v):
         """Append an element to the buffer. If full remove element with least priority.
 
@@ -468,7 +471,7 @@ class PrioritisedRingBuffer(object):
 
 ## OJAS Implementation
 class PrioritisedNonSequentialMemory(Memory):
-    def __init__(self, limit=1000000, alpha=0.7, beta=0.5, **kwargs):
+    def __init__(self, limit=1000000, alpha=0.7, beta=0.5, dynamic_actor_exploration=False,**kwargs):
         super(PrioritisedNonSequentialMemory, self).__init__(**kwargs)
         self.limit = limit
         self.alpha = alpha
@@ -477,6 +480,26 @@ class PrioritisedNonSequentialMemory(Memory):
         self.powered_priority_sum = 0.0
         self.max_imp_weight = 1.0
         self.data = PrioritisedRingBuffer(limit) # (elements are [priority,Transition object] )
+        
+        self.dynamic_exploration = dynamic_actor_exploration
+        self.alpha_init = 0.3
+        if(dynamic_actor_exploration):
+            self.alpha = self.alpha_init
+            self.max_alpha = alpha
+        # self.alpha_linear_increment = (self.alpha-self.alpha_init)/5000
+        # self.dynamic_exploration = kwargs.get('dynamic_actor_exploration')
+    
+    def reset_memory(self):
+        self.data.reset_ringbuffer()
+        self.max_priority = 1.0
+        self.powered_priority_sum = 0.0
+        self.max_imp_weight = 1.0
+        
+    """ WARNING: method for dynamic_exploration *ONLY* , WARNING: O(n) so do not call very often"""
+    def update_alpha(self, new_alpha=None):
+        self.alpha = self.max_alpha if new_alpha==None else new_alpha    
+        self.powered_priority_sum = sum([x[0]**self.alpha for x in self.data.heap_data])
+        self.max_imp_weight = deepcopy(self.get_importance_weight(self.max_priority))
 
     def update_priorities(self, new_priorities, idxs):
         """ Input-
@@ -504,7 +527,7 @@ class PrioritisedNonSequentialMemory(Memory):
 
         for (new_val,idx) in zip(new_priorities, idxs):
             self.powered_priority_sum -= float(self.data.heap_data[idx][0])**self.alpha
-            self.powered_priority_sum += float(new_val)**self.alpha
+            self.powered_priority_sum += float(new_val)**self.alpha        
 
     def append(self, state0, action, state1, reward, terminal, training=True):
         """ TODO: edit last_id, update transition_sampledornot"""
@@ -514,6 +537,10 @@ class PrioritisedNonSequentialMemory(Memory):
             self.powered_priority_sum -= float(removed_priority)**self.alpha
 
         self.powered_priority_sum += float(self.max_priority)**self.alpha
+
+        ## (DEPRECATED USE) HACK: one append call per step in main loop helps for dynamic alpha 
+        # if(self.dynamic_exploration):
+            # self.alpha = max(self.alpha+self.alpha_linear_increment, self.max_alpha)
 
     def append_with_priority(self, state0, action, state1, reward, terminal, priority, training=True):
         """ TODO: edit last_id, update transition_sampledornot"""
@@ -528,7 +555,8 @@ class PrioritisedNonSequentialMemory(Memory):
         self.powered_priority_sum += float(priority)**self.alpha
         self.max_priority = max(self.max_priority,priority)
         self.max_imp_weight = deepcopy(self.get_importance_weight(self.max_priority))
-
+        
+        ## NOTE: dynamic exploration is only for actors which do not use append_with_priority method
 
     """ WARNING: problem suppressed (ValueError: probabilities do not sum to 1) by normalising """
     def get_probabilites_from_index(self, low, high):
@@ -543,7 +571,7 @@ class PrioritisedNonSequentialMemory(Memory):
         normalizer = np.sum(prob_list)
 
         assert abs(normalizer-1.0) < BAD_PROB_THRESHOLD
-        
+
         return prob_list/normalizer
 
     """ BOTTLENECK WARNING: np.random.choice """
@@ -555,6 +583,7 @@ class PrioritisedNonSequentialMemory(Memory):
                 r = range(low, high)
 
             batch_idxs = np.random.choice(r, size, p=self.get_probabilites_from_index(low,high), replace=False)
+
         else:
             # Not enough data. Help ourselves with sampling from the range, but the same index
             # can occur multiple times. This is not good and should be avoided by picking a
@@ -592,8 +621,8 @@ class PrioritisedNonSequentialMemory(Memory):
             assert len(state1) == len(state0)
 
             """ Calculate importance weights """
-            imp_weight = self.get_importance_weight(self.data[idx][1].priority)
-
+            imp_weight = self.normalise_importance_weigths(self.get_importance_weight(self.data[idx][1].priority))
+            
             experiences.append(PrioritisedExperience(state0=state0, action=action, reward=reward,
                                           state1=state1, terminal1=terminal1, importance_weight=imp_weight, ))
 
@@ -604,7 +633,7 @@ class PrioritisedNonSequentialMemory(Memory):
         return experiences, batch_idxs
 
     def sample_with_priority(self, batch_size=32, batch_idxs=None):
-        """TODO: Update transitions change to update idxs """
+        """TODO: Gives transition probabilities with transitions """
         assert self.nb_entries >= self.window_length + 2, 'not enough entries in the memory'
 
         if batch_idxs is None:
@@ -631,7 +660,7 @@ class PrioritisedNonSequentialMemory(Memory):
             assert len(state1) == len(state0)
 
             """ Calculate importance weights """
-            imp_weight = self.get_importance_weight(self.data[idx][1].priority)
+            imp_weight = self.normalise_importance_weigths(self.get_importance_weight(self.data[idx][1].priority))
 
             experiences.append(PrioritisedExperience_with_priority(state0=state0, action=action, reward=reward,
                                           state1=state1, terminal1=terminal1, importance_weight=imp_weight, priority=priorities))
@@ -649,8 +678,12 @@ class PrioritisedNonSequentialMemory(Memory):
 
     def get_importance_weight(self, priority):
         """ Returns the importance weight given priority"""
-        weight = (1/float(self.max_imp_weight))*(1/float(self.get_proportional_priority(priority)*self.limit)**self.beta)
+        weight = (1/float(self.get_proportional_priority(priority)*self.limit)**self.beta)
         return weight
+
+    """ INFO: called just before sending out for updates to critic """
+    def normalise_importance_weigths(self, unnormalised_weight):
+        return (1/float(self.max_imp_weight))*unnormalised_weight
 
     # @classmethod
     def update_memory_if_update(self, old_priority, new_priority):

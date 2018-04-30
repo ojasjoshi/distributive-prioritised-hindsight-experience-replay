@@ -6,7 +6,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-EPOCH = 10
+EPOCH = 50
 
 def __get__data(file_path=None, print_data=False):
 	
@@ -16,22 +16,23 @@ def __get__data(file_path=None, print_data=False):
 	print_data = {} # (change to dictionary)
 
 	epi_success = []
+	epi_loss = []
 	curr_epoch = 0
 	for episode,duration,episode_reward,loss,mae,mq,nbes,nb_steps,success_info in zip(data['episode'],data['duration'],data['episode_reward'],data['loss'],data['mean_absolute_error'],data['mean_q'],data['nb_episode_steps'],data['nb_steps'],data['infos']):
 		
 		#book keeping
 		success_val = float(success_info.split(':')[1])
 		epi_success.append(success_val)
-
+		epi_loss.append(0 if math.isnan(loss) else loss)
 		if(episode%EPOCH==0):
 			if math.isnan(mq):
 				mq=0		
 			success_val_mean = np.mean(epi_success)
 			success_val_std = np.std(epi_success)
-
+			loss_mean = np.mean(epi_loss)
 			# can add more data if needed
 		
-			temp_data = [('epoch', curr_epoch), ('success_mean', success_val_mean), ('success_std', success_val_std)]
+			temp_data = [('epoch', curr_epoch), ('success_mean', success_val_mean), ('success_std', success_val_std), ('loss_mean', loss_mean)]
 			for key, value in temp_data:
 				if key not in print_data:
 				    print_data[key] = []
@@ -39,6 +40,7 @@ def __get__data(file_path=None, print_data=False):
 
 			#reset
 			epi_success = []
+			epi_loss = []
 			curr_epoch += 1
 			#validate
 			if(print_data==True):
@@ -57,26 +59,29 @@ def __get__data(file_path=None, print_data=False):
 				print(template.format(**variables))
 	return print_data
 
-def plot_af(file_path=None,save_file_name='temp_plot.png'):
+def plot_af(file_path=None,save_file_name='temp_plot.png',plot_what='success'):
 	
 	if(file_path==None):
 		print('could not find a path to training .json file')
 	else:	
 		print_data = __get__data(file_path)	#print_data has form {'epoch': [], 'success_mean': [], 'success_std': []}
-	    # for (epoch,suc_mean,suc_std) in zip(print_data['epoch'],print_data['success_mean'],print_data['success_std']):
+		# for (epoch,suc_mean,suc_std) in zip(print_data['epoch'],print_data['success_mean'],print_data['success_std']):
+		if(plot_what=='success'):
+			y = np.asarray(print_data['success_mean'])
+			x = np.asarray(print_data['epoch'])
+			e = np.asarray(print_data['success_std'])
+			plt.errorbar(np.squeeze(x), np.squeeze(y), np.squeeze(e), linestyle='None', marker='^')
+		elif(plot_what=='loss'):
+			y = np.asarray(print_data['loss_mean'])
+			x = np.asarray(print_data['epoch'])
+			plt.plot(np.squeeze(x), np.squeeze(y))
 
-		y = np.asarray(print_data['success_mean'])
-		x = np.asarray(print_data['epoch'])
-		e = np.asarray(print_data['success_std'])
-		# print(np.squeeze(x).shape, np.squeeze(y).shape, np.squeeze(e).shape)
-
-		plt.errorbar(np.squeeze(x), np.squeeze(y), np.squeeze(e), linestyle='None', marker='^')
 		plt.savefig(str(save_file_name), bbox_inches='tight')
 		print("Plot saved.")
 		# plt.show()
 
 if __name__ == '__main__':
-	plot_af('temp.json')
+	plot_af('temp.json', plot_what='loss')
 
 
 

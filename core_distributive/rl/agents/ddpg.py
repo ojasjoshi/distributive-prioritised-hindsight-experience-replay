@@ -478,6 +478,10 @@ class DDPGAgent(Agent):
         if self.step % self.actors_update_interval == 0:
             self.update_actors_hard()
 
+    """ TODO: Make more dynamic (currently increases alpha values only once)"""
+    def update_actor_exploration(self):
+        self.actor1_memory.update_alpha()
+        self.actor2_memory.update_alpha()
 
     def backward_learner(self):
         

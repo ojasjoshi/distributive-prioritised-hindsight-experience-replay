@@ -54,7 +54,7 @@ class Agent(object):
 
     def fit(self, env, env_1, nb_steps, action_repetition=1, callbacks=None, verbose=1,
             visualize=False, nb_max_start_steps=0, start_step_policy=None, log_interval=10000,
-            file_interval=200,nb_max_episode_steps=None,save_data_path='temp.json'):
+            file_interval=200,nb_max_episode_steps=None,save_data_path='temp.json', dynamic_actor_exploration=False, update_exploration_interval=5000):
         """Trains the agent on the given environment.
 
         # Arguments
@@ -252,6 +252,10 @@ class Agent(object):
                     'info': accumulated_info,
                 }
                 callbacks.on_step_end(episode_step, step_logs)      ## stores the current step info 
+
+                if(self.step%update_exploration_interval and dynamic_actor_exploration==True):
+                    self.update_actor_exploration()
+
                 episode_step += 1
                 self.step += 1
 
