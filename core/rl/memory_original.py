@@ -542,7 +542,7 @@ class PrioritisedNonSequentialMemory(Memory):
             assert len(state1) == len(state0)
 
             """ Calculate importance weights """
-            imp_weight = self.normalise_importance_weigths(self.get_importance_weight(self.data[idx][1].priority))
+            imp_weight = self.get_importance_weight(self.data[idx][1].priority)
 
             experiences.append(PrioritisedExperience(state0=state0, action=action, reward=reward,
                                           state1=state1, terminal1=terminal1, importance_weight=imp_weight))
@@ -560,12 +560,8 @@ class PrioritisedNonSequentialMemory(Memory):
 
     def get_importance_weight(self, priority):
         """ Returns the importance weight given priority"""
-        weight = (1/float(self.get_proportional_priority(priority)*self.limit)**self.beta)
+        weight = (1/float(self.max_imp_weight))*(1/float(self.get_proportional_priority(priority)*self.limit)**self.beta)
         return weight
-
-    """ INFO: called just before sending out for updates to critic """
-    def normalise_importance_weigths(self, unnormalised_weight):
-        return (1/float(self.max_imp_weight))*unnormalised_weight
 
     # @classmethod
     def update_memory_if_update(self, old_priority, new_priority):
