@@ -10,7 +10,7 @@ import numpy as np
 from keras import __version__ as KERAS_VERSION
 from keras.callbacks import Callback as KerasCallback, CallbackList as KerasCallbackList
 from keras.utils.generic_utils import Progbar
-
+import pdb
 
 class Callback(KerasCallback):
     def _set_env(self, env):
@@ -133,7 +133,7 @@ class TrainEpisodeLogger(Callback):
     def on_train_begin(self, logs):
         """ Print training values at beginning of training """
         self.train_start = timeit.default_timer()
-        self.metrics_names = self.model.metrics_names
+        self.metrics_names = self.model.learner_metrics_names
         print('Training for {} steps ...'.format(self.params['nb_steps']))
         
     def on_train_end(self, logs):
@@ -230,7 +230,9 @@ class TrainIntervalLogger(Callback):
     def on_train_begin(self, logs):
         """ Initialize training statistics at beginning of training """
         self.train_start = timeit.default_timer()
-        self.metrics_names = self.model.metrics_names
+        self.metrics_names = self.model.learner_metrics_names
+        # print(self.model.learner_metrics_names)
+        # pdb.set_trace()
         print('Training for {} steps ...'.format(self.params['nb_steps']))
 
     def on_train_end(self, logs):
@@ -243,6 +245,8 @@ class TrainIntervalLogger(Callback):
         if self.step % self.interval == 0:
             if len(self.episode_rewards) > 0:
                 metrics = np.array(self.metrics)
+                # print(metrics.shape, self.interval, len(self.metrics_names), self.metrics_names)
+                # pdb.set_trace()
                 assert metrics.shape == (self.interval, len(self.metrics_names))
                 formatted_metrics = ''
                 if not np.isnan(metrics).all():  # not all values are means
@@ -303,7 +307,7 @@ class OjasFileLogger(Callback):
 
     def on_train_begin(self, logs):
         """ Initialize model metrics before training """
-        self.metrics_names = self.model.metrics_names
+        self.metrics_names = self.model.learner_metrics_names
 
     def on_train_end(self, logs):
         """ Save model at the end of training """
@@ -395,7 +399,7 @@ class FileLogger(Callback):
 
     def on_train_begin(self, logs):
         """ Initialize model metrics before training """
-        self.metrics_names = self.model.metrics_names
+        self.metrics_names = self.model.learner_metrics_names
 
     def on_train_end(self, logs):
         """ Save model at the end of training """

@@ -13,6 +13,7 @@ import numpy as np
 # yields `reward` and results in `state1`, which might be `terminal`.
 Experience = namedtuple('Experience', 'state0, action, reward, state1, terminal1')
 PrioritisedExperience = namedtuple('PrioritisedExperience', 'state0, action, reward, state1, terminal1, importance_weight')
+PrioritisedExperience_with_priority = namedtuple('PrioritisedExperience', 'state0, action, reward, state1, terminal1, importance_weight, priority')
 
 
 def sample_batch_indexes(low, high, size):
@@ -421,6 +422,41 @@ class PrioritisedRingBuffer(object):
             # This should never happen.
             raise RuntimeError()
 
+    def append_with_priority(self, v):
+        """Append an element to the buffer. If full remove element with least priority.
+
+        # Argument
+            v (object): Element to append
+        """
+        
+        """ TODO: remove if no assertion error in future """
+        assert len(self.heap_data)==self.length
+        if(self.overflow==1):                   # to check if after full memory, it stays full
+            assert self.length == self.maxlen
+
+        if self.length < self.maxlen:
+            # We have space, simply increase the length.
+            heapq.heappush(self.heap_data, v)
+            self.length += 1
+            
+            return None
+
+        elif self.length == self.maxlen:
+            # First time the memory is full
+            if(self.overflow==0):
+                self.overflow = 1
+                print("\nMemory full. Running time peaked!!")
+            # No space, "remove" the first item.
+            removed = heapq.heapreplace(self.heap_data, v)
+
+            return removed[0]
+        else:
+            # This should never happen.
+            raise RuntimeError()
+
+        """ WARNING: Biggest bottleneck """
+        heapq.heapify(self.heap_data)
+
     def update_heap_priorities(self, new_priorities, idxs):
         """ Input: new_priorities- list of new priorities, idxs- list of indexes to update (called after a batch update (bigger batch size better) )"""
 
@@ -478,6 +514,20 @@ class PrioritisedNonSequentialMemory(Memory):
             self.powered_priority_sum -= float(removed_priority)**self.alpha
 
         self.powered_priority_sum += float(self.max_priority)**self.alpha
+
+    def append_with_priority(self, state0, action, state1, reward, terminal, priority, training=True):
+        """ TODO: edit last_id, update transition_sampledornot"""
+        """ We anneal for the unequal scale of current TD errors in actor memories """
+        priority = deepcopy(max(self.max_priority,priority))
+
+        removed_priority = self.data.append_with_priority([priority, Transition(state0, action, reward, state1, terminal, priority)])
+        
+        if(removed_priority!=None):
+            self.powered_priority_sum -= float(removed_priority)**self.alpha
+
+        self.powered_priority_sum += float(priority)**self.alpha
+        self.max_priority = max(self.max_priority,priority)
+        self.max_imp_weight = deepcopy(self.get_importance_weight(self.max_priority))
 
 
     """ WARNING: problem suppressed (ValueError: probabilities do not sum to 1) by normalising """
@@ -545,7 +595,46 @@ class PrioritisedNonSequentialMemory(Memory):
             imp_weight = self.get_importance_weight(self.data[idx][1].priority)
 
             experiences.append(PrioritisedExperience(state0=state0, action=action, reward=reward,
-                                          state1=state1, terminal1=terminal1, importance_weight=imp_weight))
+                                          state1=state1, terminal1=terminal1, importance_weight=imp_weight, ))
+
+        assert len(experiences) == batch_size
+
+        # print("\nFrom sample batch size and batch_size is:",batch_size, len(experiences))
+
+        return experiences, batch_idxs
+
+    def sample_with_priority(self, batch_size=32, batch_idxs=None):
+        """TODO: Update transitions change to update idxs """
+        assert self.nb_entries >= self.window_length + 2, 'not enough entries in the memory'
+
+        if batch_idxs is None:
+
+            batch_idxs = self.sample_batch_indexes(
+                0, self.nb_entries, size=batch_size)
+
+        assert np.min(batch_idxs) >= 0
+        assert np.max(batch_idxs) < self.nb_entries
+        assert len(batch_idxs) == batch_size
+
+        # Create experiences
+        experiences = []
+        for idx in batch_idxs:
+
+            state0 = [self.data[idx][1].transition_data['state0']]
+            action = self.data[idx][1].transition_data['action']
+            reward = self.data[idx][1].transition_data['reward']
+            terminal1 = self.data[idx][1].transition_data['terminal']
+            state1 = [self.data[idx][1].transition_data['state1']]
+            priorities = self.data[idx][1].priority
+
+            assert len(state0) == 1
+            assert len(state1) == len(state0)
+
+            """ Calculate importance weights """
+            imp_weight = self.get_importance_weight(self.data[idx][1].priority)
+
+            experiences.append(PrioritisedExperience_with_priority(state0=state0, action=action, reward=reward,
+                                          state1=state1, terminal1=terminal1, importance_weight=imp_weight, priority=priorities))
 
         assert len(experiences) == batch_size
 

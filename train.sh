@@ -5,7 +5,7 @@ cd core
 # python ddpg_mujoco.py
 #
 # ## 1.b.
-python ddpg_mujoco.py --env FetchReach-v0 --no-her --per --k 4 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001
+# python ddpg_mujoco.py --env FetchReach-v0 --no-her --per --k 4 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001
 #
 # ## 2.a. AYUSH
 # python ddpg_mujoco.py --env FetchReach-v0 --her --per --k 4 --her_strategy future --batch_size 128 --memory_size 75000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001
@@ -35,7 +35,7 @@ python ddpg_mujoco.py --env FetchReach-v0 --no-her --per --k 4 --her_strategy fu
 # python ddpg_mujoco.py --env FetchReach-v0 --her --per --k 1 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001
 #
 # ## 5.d. OJAS
-# python ddpg_mujoco.py --env FetchReach-v0 --her --per --k 4 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001
+python ddpg_mujoco.py --env FetchReach-v0 --her --per --k 4 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001
 #
 # ## 5.e. OJAS
 # python ddpg_mujoco.py --env FetchReach-v0 --her --per --k 8 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001
@@ -100,9 +100,9 @@ python ddpg_mujoco.py --env FetchReach-v0 --no-her --per --k 4 --her_strategy fu
 #
 # ## 5.f. OJAS (check alpha, beta before running)
 # python ddpg_mujoco.py --env FetchReach-v0 --her --per --k 4 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001 --alpha 0.5 --beta 0.5
-#
+
 # ## if training distributive
-# cd core_distributive
+cd core_distributive
 # ## 3.a. AYUSH
 # python ddpg_mujoco.py --env FetchReach-v0 --her --per --k 4 --her_strategy future --batch_size 128 --memory_size 75000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001 --actor_batch_size 4
 #
@@ -111,6 +111,12 @@ python ddpg_mujoco.py --env FetchReach-v0 --no-her --per --k 4 --her_strategy fu
 #
 # ## 5.f. OJAS
 # python ddpg_mujoco.py --env FetchReach-v0 --her --per --k 4 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001 --actor_batch_size 8
+
+# ## Default
+python ddpg_mujoco.py --env FetchReach-v0 --her --no-per --k 4 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001 --actor_batch_size 2 --prioritised_actor --actor_memory_size 20000 --actor_warmup_steps 1000 
+
+
+
 
 
 ## **if training from pretrained model**

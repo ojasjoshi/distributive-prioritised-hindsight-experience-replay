@@ -85,8 +85,8 @@ def parse_arguments():
 	return parser.parse_args()
 
 """ TODO: delta_clip?, rank-based PER, check MujocoProcessor """
-
 args = parse_arguments()
+# print(args.HER,args.PER)
 
 gym.undo_logger_setup()
 

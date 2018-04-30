@@ -54,7 +54,7 @@ class Agent(object):
 
     def fit(self, env, env_1, nb_steps, action_repetition=1, callbacks=None, verbose=1,
             visualize=False, nb_max_start_steps=0, start_step_policy=None, log_interval=10000,
-            file_interval=1000,nb_max_episode_steps=None,save_data_path='temp.json'):
+            file_interval=200,nb_max_episode_steps=None,save_data_path='temp.json'):
         """Trains the agent on the given environment.
 
         # Arguments
@@ -141,6 +141,7 @@ class Agent(object):
                     observation2 = deepcopy(env_1.reset())     
 
                     if self.actor_processor is not None:
+                        # observation1 = self.learner_processor.process_observation(observation1)
                         observation1 = self.actor_processor.process_observation(observation1)
                         observation2 = self.actor_processor.process_observation(observation2)
                     assert observation1 is not None
@@ -152,26 +153,30 @@ class Agent(object):
                     for _ in range(nb_random_start_steps):
                         if start_step_policy is None:
                             action1 = env.action_space.sample()
-                            action2 = env.action_space.sample()
+                            action2 = env_1.action_space.sample()
                         else:
                             action1 = start_step_policy(observation1)
                             action2 = start_step_policy(observation2)
                         if self.actor_processor is not None:
+                            # action1 = self.learner_processor.process_action(action1)
                             action1 = self.actor_processor.process_action(action1)
                             action2 = self.actor_processor.process_action(action2)
                         callbacks.on_action_begin(action1)
                         observation1, reward1, done1, info1 = env.step(action1)
-                        observation2, reward2, done2, info2 = env_1.step(action1)
+                        observation2, reward2, done2, info2 = env_1.step(action2)
                         observation1 = deepcopy(observation1)
                         observation2 = deepcopy(observation2)
                         if self.actor_processor is not None:
+                            # observation1, reward1, done1, info1 = self.learner_processor.process_step(observation1, reward1, done1, info1)
                             observation1, reward1, done1, info1 = self.actor_processor.process_step(observation1, reward1, done1, info1)
                             observation2, reward2, done2, info2 = self.actor_processor.process_step(observation2, reward2, done2, info2)
                         callbacks.on_action_end(action1)
                         if done1:
                             warnings.warn('Env ended before {} random steps could be performed at the start. You should probably lower the `nb_max_start_steps` parameter.'.format(nb_random_start_steps))
                             observation1 = deepcopy(env.reset())
+                            # if self.learner_processor is not None:
                             if self.actor_processor is not None:
+                                # observation1 = self.learner_processor.process_observation(observation1)
                                 observation1 = self.actor_processor.process_observation(observation1)
                             break
                         if done2:
@@ -193,6 +198,7 @@ class Agent(object):
                 # (forward step) and then use the reward to improve (backward step).
                 action1, action2 = self.forward(observation1, observation2)
                 if self.actor_processor is not None:
+                    # action1 = self.learner_processor.process_action(action1)
                     action1 = self.actor_processor.process_action(action1)
                     action2 = self.actor_processor.process_action(action2)
                 reward1 = 0.
@@ -204,6 +210,8 @@ class Agent(object):
                     callbacks.on_action_begin(action1)
                     observation1, r1, done1, info1 = env.step(action1)
                     observation1 = deepcopy(observation1)
+                    # if self.learner_processor is not None:
+                        # observation1, r1, done1, info1 = self.learner_processor.process_step(observation1, r1, done1, info1)
                     if self.actor_processor is not None:
                         observation1, r1, done1, info1 = self.actor_processor.process_step(observation1, r1, done1, info1)
                     for key, value in info1.items():
@@ -227,11 +235,12 @@ class Agent(object):
                         break
 
                 if nb_max_episode_steps and episode_step >= nb_max_episode_steps - 1:
-                    # Force a terminal state.
-                    done = True
+                    # Force a terminal state. (both agents take every step parallely)
+                    done1 = True
+                    done2 = True
 
-                metrics = self.backward_actor(reward1, observation1, info1, reward2, observation2, info2, env, terminal1=done1, terminal2=done2)
-                self.backward_learner()
+                self.backward_actor(reward1, observation1, info1, reward2, observation2, info2, env, terminal1=done1, terminal2=done2)
+                metrics = self.backward_learner()
                 episode_reward1 += reward1
 
                 step_logs = {
@@ -248,15 +257,6 @@ class Agent(object):
 
                 if done1:
 
-                    # We are in a terminal state but the agent hasn't yet seen it. We therefore
-                    # perform one more forward-backward call and simply ignore the action before
-                    # resetting the environment. We need to pass in `terminal=False` here since
-                    # the *next* state, that is the state of the newly reset environment, is
-                    # always non-terminal by convention.
-                    
-                    # self.forward(observation)
-                    # self.backward(0., observation, terminal=False)
-
                     # This episode is finished, report and reset.
                     episode_logs = {
                         'episode_reward': episode_reward1,
@@ -265,7 +265,7 @@ class Agent(object):
                     }
                     callbacks.on_episode_end(episode, episode_logs)
                     # print("Episode: {}, Rewards: {}, Steps: {}".format(episode,episode_logs['episode_reward'],episode_logs['nb_episode_steps']))
-                    episode += 1
+                    episode += 1                ## CHECK!
                     observation1 = None
                     episode_step = None
                     episode_reward1 = None

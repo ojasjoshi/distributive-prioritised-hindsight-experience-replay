@@ -64,7 +64,7 @@ def parse_arguments():
 	parser.add_argument('--beta', dest='beta',type=float, default=0.5,help="Value of beta PER between 0 and 1")
 	parser.add_argument('--memory_size', dest='memory_size',type=int, default=50000,help="Experience Replay Size")
 	parser.add_argument('--max_step_episode', dest='max_step_episode',type=int, default=50,help="Number of steps before resetting the episode")
-	parser.add_argument('--file_interval', dest='file_interval',type=int, default=10000,help="Data save interval")
+	parser.add_argument('--file_interval', dest='file_interval',type=int, default=200,help="Data save interval")
 	parser.add_argument('--nb_train_steps', dest='nb_train_steps',type=int, default=200000,help="Number of training steps")
 	parser.add_argument('--nb_test_episodes', dest='nb_test_episodes',type=int, default=5,help="Number of test episodes")
 	parser.add_argument('--monitor', dest='monitor',type=bool, default=False, help="Turn on monitor")
@@ -84,6 +84,11 @@ def parse_arguments():
 	parser.add_argument('--distributive', dest='distributive', action='store_true', help="Distributive training")
 	parser.set_defaults(distributive=False)
 	parser.add_argument('--actor_batch_size', dest='actor_batch_size',type=int, default=8, help="Actor batch size")
+	parser.add_argument('--actor_memory_size', dest='actor_memory_size',type=int, default=1000, help="Actor memory size")
+	parser.add_argument('--actor_warmup_steps', dest='actor_warmup_steps',type=int, default=500, help="Actor burnin steps")
+	parser.add_argument('--prioritised_actor', dest='prioritised_actor', action='store_true', help="Prioritised actors")
+	parser.set_defaults(prioritised_actor=False)
+	parser.add_argument('--actors_update_interval', dest='actors_update_interval',type=int, default=2, help="Actors hard update")
 	
 	return parser.parse_args()
 
@@ -191,24 +196,32 @@ if(args.pretrained):
 	actor.load_weights(args.actor_weights_path, by_name=False)
 	critic.load_weights(args.critic_weights_path, by_name=False)
 
+## prioritised actors enforces the need for PER
+if(args.prioritised_actor):
+	args.PER=True
 
-if(args.PER==False):
-	memory = NonSequentialMemory(limit=args.memory_size, window_length=1)
-elif(args.PER==True):
+if(args.PER):
 	memory = PrioritisedNonSequentialMemory(limit=args.memory_size, alpha=args.alpha, beta=args.beta, window_length=1) ## 'proportional' priority replay implementation
-	actor1_memory = PrioritisedNonSequentialMemory(limit=args.memory_size, alpha=args.alpha, beta=args.beta, window_length=1)
-	actor2_memory = PrioritisedNonSequentialMemory(limit=args.memory_size, alpha=args.alpha, beta=args.beta, window_length=1)
 else:
-	print("\nRun vanilla_keras_rl/keras-rl/examples/ddpg_mujoco.py for no PER or HER!")
-	sys.exit(1)
+	memory = NonSequentialMemory(limit=args.memory_size, window_length=1)
+
+assert args.actor_memory_size > args.actor_warmup_steps
+
+if(args.prioritised_actor):
+	actor1_memory = PrioritisedNonSequentialMemory(limit=args.actor_memory_size, alpha=args.alpha, beta=args.beta, window_length=1)
+	actor2_memory = PrioritisedNonSequentialMemory(limit=args.actor_memory_size, alpha=args.alpha, beta=args.beta, window_length=1)
+else:
+	actor1_memory = NonSequentialMemory(limit=args.actor_memory_size, window_length=1)
+	actor2_memory = NonSequentialMemory(limit=args.actor_memory_size, window_length=1)
+
 random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.15, mu=0., sigma=.1)
 
 ## WARNING: make sure memory_interval is 1 for HER to work 
 agent = DDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, actor1_critic=critic1, actor2_critic=critic2, pretanh_model=pretanh_model , critic_action_input=action_input,
                   actor1_critic_action_input=action_input1, actor2_critic_action_input=action_input2, learner_memory=memory, actor1_memory=actor1_memory, actor2_memory=actor2_memory, 
-                  nb_steps_warmup_critic=1000, nb_steps_warmup_actor=1000, nb_steps_warmup_actor1=500, nb_steps_warmup_actor2=500, batch_size=args.batch_size, actor_batch_size=args.actor_batch_size, delta_clip=args.delta_clip, random_process=random_process, 
+                  nb_steps_warmup_critic=1000, nb_steps_warmup_actor=1000, nb_steps_warmup_actor1=args.actor_warmup_steps, nb_steps_warmup_actor2=args.actor_warmup_steps, batch_size=args.batch_size, actor_batch_size=args.actor_batch_size, delta_clip=args.delta_clip, random_process=random_process, 
                   gamma=args.gamma, target_model_update=args.soft_update, do_HER=args.HER, K=args.K, HER_strategy=args.her_strategy, do_PER=args.PER, epsilon=1e-4, 
-                  pretanh_weight=args.pretanh_weight, actors_update_interval=100, actor_processor=MujocoProcessor(), learner_processor=MujocoProcessor())
+                  pretanh_weight=args.pretanh_weight, actors_update_interval=args.actors_update_interval, prioritised_actors=args.prioritised_actor, actor_processor=MujocoProcessor(), learner_processor=MujocoProcessor())
 agent.compile([Adam(lr=args.actor_lr, clipnorm=args.actor_gradient_clip), Adam(lr=args.critic_lr, clipnorm=args.critic_gradient_clip)], metrics=['mae'])
 
 if(args.HER==True and args.PER==False):
@@ -242,8 +255,8 @@ try:
 except KeyboardInterrupt:
 	pass
 
-if(args.train):
+# if(args.train):
 	# Finally, evaluate our algorithm for 5 episodes.
-	agent.test(env, nb_episodes=args.nb_test_episodes, visualize=True, nb_max_episode_steps=args.max_step_episode)	
+	# agent.test(env, nb_episodes=args.nb_test_episodes, visualize=True, nb_max_episode_steps=args.max_step_episode)	
 
 

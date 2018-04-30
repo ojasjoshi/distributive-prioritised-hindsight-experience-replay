@@ -29,7 +29,7 @@ class DDPGAgent(Agent):
                  gamma=.99, batch_size=64, actor_batch_size=32, nb_steps_warmup_critic=1000, nb_steps_warmup_actor=1000, nb_steps_warmup_actor1=1000,
                  nb_steps_warmup_actor2=1000, train_interval=1, sample_actor_interval=1, memory_interval=1, delta_range=None, delta_clip=np.inf,
                  random_process=None, custom_model_objects={}, target_model_update=.001, do_HER=True, K=4, HER_strategy='future',
-                 do_PER=True, epsilon = 1e-4, pretanh_weight=0.0, actors_update_interval=100, **kwargs):
+                 do_PER=True, epsilon = 1e-4, pretanh_weight=0.0, actors_update_interval=1, prioritised_actors=False, **kwargs):
         if hasattr(actor.output, '__len__') and len(actor.output) > 1:
             raise ValueError('Actor "{}" has more than one output. DDPG expects an actor that has a single output.'.format(actor))
         if hasattr(critic.output, '__len__') and len(critic.output) > 1:
@@ -111,6 +111,7 @@ class DDPGAgent(Agent):
         ## (TODO: try to take it into memory.py/PER)
         self.epsilon = epsilon
         self.pretanh_weight = pretanh_weight
+        self.prioritised_actors = prioritised_actors
 
     @property
     def uses_learning_phase(self):
@@ -235,6 +236,10 @@ class DDPGAgent(Agent):
             self.critic.reset_states()
             self.target_actor.reset_states()
             self.target_critic.reset_states()
+            self.actor1_critic.reset_states()
+            self.actor1_actor.reset_states()
+            self.actor2_critic.reset_states()
+            self.actor2_actor.reset_states()
 
     def process_state_batch_actor(self, batch):
         batch = np.array(batch)
@@ -250,8 +255,10 @@ class DDPGAgent(Agent):
 
     ## forward pass is only through the actors
     def select_action(self, state1, state2):
+        # batch1 = self.process_state_batch_learner([state1])
         batch1 = self.process_state_batch_actor([state1])
         batch2 = self.process_state_batch_actor([state2])
+        # action1 = self.actor.predict_on_batch(batch1).flatten()
         action1 = self.actor1_actor.predict_on_batch(batch1).flatten()
         action2 = self.actor2_actor.predict_on_batch(batch2).flatten()
         assert action1.shape == (self.nb_actions,)
@@ -262,12 +269,16 @@ class DDPGAgent(Agent):
             noise = self.random_process.sample()
             assert noise.shape == action1.shape
             action1 += noise
-            action2 += noise
+
+            noise2 = self.random_process.sample()
+            assert noise2.shape == action2.shape
+            action2 += noise2
 
         return action1, action2
 
     def forward(self, observation1, observation2):
         # Select an action.
+        # state1 = self.learner_memory.get_recent_state(observation1)
         state1 = self.actor1_memory.get_recent_state(observation1)
         state2 = self.actor2_memory.get_recent_state(observation2)
         action1, action2 = self.select_action(state1, state2)   
@@ -286,9 +297,13 @@ class DDPGAgent(Agent):
 
     @property
     def actor_metrics_names(self):
-        names = self.actor1_critic.metrics_names[:]
-        if self.actor_processor is not None:
-            names += self.actor_processor.metrics_names[:]
+        # names = self.actor1_critic.metrics_names[:]
+        # if self.actor_processor is not None:
+        #     names += self.actor_processor.metrics_names[:]
+        # return names
+        names = self.critic.metrics_names[:]
+        if self.learner_processor is not None:
+            names += self.learner_processor.metrics_names[:]
         return names
 
     @property
@@ -406,6 +421,8 @@ class DDPGAgent(Agent):
                                training=self.training)       
             self.actor2_memory.append(self.recent_observation2, self.recent_action2, nextstate2, reward2, terminal2,
                                training=self.training)       
+            # self.learner_memory.append(self.recent_observation1, self.recent_action1, nextstate1, reward1, terminal1,
+                               # training=self.training)       
 
             self.current_episode_experience1.append([self.recent_observation1, self.recent_action1, nextstate1, reward1, terminal1, info1])
             self.current_episode_experience2.append([self.recent_observation2, self.recent_action2, nextstate2, reward2, terminal2, info2])
@@ -420,43 +437,46 @@ class DDPGAgent(Agent):
                 self.add_HER(env, actor=2, strategy=self.strategy)
             self.current_episode_experience2 = []
 
-        metrics = [np.nan for _ in self.actor_metrics_names]
-        if not self.training:
-            # We're done here. No need to update the experience memory since we only use the working
-            # memory to obtain the state over the most recent observations.
-            return metrics
-
-        can_sample_either = len(self.actor1_memory.data) > self.nb_steps_warmup_actor1 or len(self.actor2_memory.data) > self.nb_steps_warmup_actor2
+        can_sample_either = self.actor1_memory.nb_entries > self.nb_steps_warmup_actor1 or self.actor2_memory.nb_entries > self.nb_steps_warmup_actor2
 
         if can_sample_either and self.step % self.sample_actor_interval == 0:
-            if(self.do_PER):
-                experiences1, experience_idxs1 = self.actor1_memory.sample(batch_size=self.actor_batch_size)
-                experiences2, experience_idxs2 = self.actor2_memory.sample(batch_size=self.actor_batch_size)
-                assert len(experiences1) == len(experience_idxs1)
-                assert len(experiences2) == len(experience_idxs2)
+            
+            if(self.prioritised_actors):
+                experiences1, experience_idxs1 = self.actor1_memory.sample_with_priority(batch_size=self.actor_batch_size)
+                experiences2, experience_idxs2 = self.actor2_memory.sample_with_priority(batch_size=self.actor_batch_size)
+                    
+                assert len(experiences1) == self.actor_batch_size
+                assert len(experiences2) == self.actor_batch_size
+
+                # update the learner memory
+                for e1,e2 in zip(experiences1, experiences2):
+                    self.learner_memory.append_with_priority(e1.state0[0], e1.action, e1.state1[0], e1.reward, e1.terminal1, e1.priority,
+                                   training=self.training)
+                    self.learner_memory.append_with_priority(e2.state0[0], e2.action, e2.state1[0], e2.reward, e2.terminal1, e2.priority,
+                                   training=self.training)
+
+                ## keep the actor memories updated
+                self.update_actor_priority(experiences1, experience_idxs1, actor=1)
+                self.update_actor_priority(experiences2, experience_idxs2, actor=2)
+
             else:
+
                 experiences1 = self.actor1_memory.sample(batch_size=self.actor_batch_size)
                 experiences2 = self.actor2_memory.sample(batch_size=self.actor_batch_size)
-                
-            assert len(experiences1) == self.actor_batch_size
-            assert len(experiences2) == self.actor_batch_size
+                    
+                assert len(experiences1) == self.actor_batch_size
+                assert len(experiences2) == self.actor_batch_size
 
-            ## update the learner memory
-            for e1,e2 in zip(experiences1, experiences2):
-                # print(np.asarray(e1.action).shape)
-                self.learner_memory.append(e1.state0[0], e1.action, e1.state1[0], e1.reward, e1.terminal1,
-                               training=self.training)
-                self.learner_memory.append(e2.state0[0], e2.action, e2.state1[0], e2.reward, e2.terminal1,
-                               training=self.training)
-
-            self.update_actor_priority(experiences1, experience_idxs1, actor=1)
-            self.update_actor_priority(experiences2, experience_idxs2, actor=2)
+                # update the learner memory
+                for e1,e2 in zip(experiences1, experiences2):
+                    self.learner_memory.append(e1.state0[0], e1.action, e1.state1[0], e1.reward, e1.terminal1,
+                                   training=self.training)
+                    self.learner_memory.append(e2.state0[0], e2.action, e2.state1[0], e2.reward, e2.terminal1,
+                                   training=self.training)
 
         # update the actors in intervals
         if self.step % self.actors_update_interval == 0:
             self.update_actors_hard()
-
-        return metrics
 
 
     def backward_learner(self):
@@ -474,8 +494,12 @@ class DDPGAgent(Agent):
                 experiences, experience_idxs = self.learner_memory.sample(batch_size=self.batch_size)                   # (samples the batch from replay)
                 assert len(experiences) == len(experience_idxs)
             else:
-                experiences = self.learner_memory.sample(batch_size=self.batch_size)                   # (samples the batch from replay)
                 
+                experiences = self.learner_memory.sample(batch_size=self.batch_size)                   # (samples the batch from replay)
+            
+            # print("\nLearner Memory Size:",self.learner_memory.nb_entries)
+            # print("\nSampled Batch Size:",len(experiences), self.batch_size)
+
             assert len(experiences) == self.batch_size
 
             # Start by extracting the necessary parameters (we use a vectorized implementation). # (vectorized => list)
@@ -577,7 +601,9 @@ class DDPGAgent(Agent):
                     inputs += [self.training]
                 action_values = self.actor_train_fn(inputs)[0]
                 assert action_values.shape == (self.batch_size, self.nb_actions)
-                
+        
+        # self.update_actors_hard()
+
         if self.target_model_update >= 1 and self.step % self.target_model_update == 0:
             self.update_target_models_hard()
 
@@ -601,12 +627,12 @@ class DDPGAgent(Agent):
                 """ random.randint is too slow check: (https://www.reddit.com/r/Python/comments/jn0bb/randomrandint_vs_randomrandom_why_is_one_15x/) """
                 # new_goal_idx = np.random.randint(sample_index,len(self.current_episode_experience))
                 new_goal_idx = random.sample(range(sample_index,len(current_experience)),1)[0]
-                new_goal = deepcopy(current_experience[new_goal_idx][2][3:6])    # randomly sampled substitute goal from states seen after the current transition
+                new_goal = deepcopy(current_experience[new_goal_idx][2][0:3])    # randomly sampled substitute goal from states seen after the current transition
                 
                 # update the original transition
                 her_curr_observation, curr_action, her_next_observation, _ , curr_terminal, info = current_experience[t]
                 
-                her_achieved_goal = deepcopy(her_next_observation[3:6])
+                her_achieved_goal = deepcopy(her_next_observation[0:3])
                 her_next_observation = deepcopy(her_next_observation)
                 her_curr_observation = deepcopy(her_curr_observation)
 
@@ -617,6 +643,7 @@ class DDPGAgent(Agent):
                 """ WARNING: NonSequentialMemory required """
                 if(actor==1):
                     self.actor1_memory.append(her_curr_observation, curr_action, her_next_observation, her_reward, curr_terminal)
+                    # self.learner_memory.append(her_curr_observation, curr_action, her_next_observation, her_reward, curr_terminal)
                 elif(actor==2):
                     self.actor2_memory.append(her_curr_observation, curr_action, her_next_observation, her_reward, curr_terminal)
 
