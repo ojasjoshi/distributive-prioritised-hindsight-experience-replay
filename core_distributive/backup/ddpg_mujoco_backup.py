@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-import os
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 import numpy as np
 import sys
@@ -18,7 +15,7 @@ import sys
 
 from rl.processors import WhiteningNormalizerProcessor
 from rl.agents import DDPGAgent
-from rl.memory import NonSequentialMemory, PrioritisedNonSequentialMemory
+from rl.memory import NonSequentialMemory, PrioritisedNonSequentialMemory	
 from rl.random import OrnsteinUhlenbeckProcess
 from rl.check_json import plot_af
 import keras.backend as K
@@ -115,10 +112,10 @@ env_1 = gym.make(args.ENV_NAME)
 # FetchSlide: ([:25]=state ([3:6]=achieved_goal), [-3:]=desired_goal)
 # FetchReach: ([:13]=state ([0:3]=achieved_goal), [-3:]=desired_goal)
 env = gym.wrappers.FlattenDictWrapper(
-    env, dict_keys=['observation', 'desired_goal'])
+    env, dict_keys=['observation', 'desired_goal']) 
 
 env_1 = gym.wrappers.FlattenDictWrapper(
-    env_1, dict_keys=['observation', 'desired_goal'])
+    env_1, dict_keys=['observation', 'desired_goal']) 
 
 if(args.monitor):
 	env = wrappers.Monitor(env, '/tmp/{}'.format(args.ENV_NAME), force=True)
@@ -217,9 +214,9 @@ else:
 assert args.actor_memory_size > args.actor_warmup_steps
 
 if(args.prioritised_actor):
-	actor1_memory = PrioritisedNonSequentialMemory(limit=args.actor_memory_size, alpha=args.alpha_actor1, beta=args.beta_actor1,
+	actor1_memory = PrioritisedNonSequentialMemory(limit=args.actor_memory_size, alpha=args.alpha_actor1, beta=args.beta_actor1, 
 		window_length=1, dynamic_actor_exploration=args.dynamic_actor_exploration)
-	actor2_memory = PrioritisedNonSequentialMemory(limit=args.actor_memory_size, alpha=args.alpha_actor2, beta=args.beta_actor2,
+	actor2_memory = PrioritisedNonSequentialMemory(limit=args.actor_memory_size, alpha=args.alpha_actor2, beta=args.beta_actor2, 
 		window_length=1, dynamic_actor_exploration=args.dynamic_actor_exploration)
 else:
 	actor1_memory = NonSequentialMemory(limit=args.actor_memory_size, window_length=1)
@@ -227,52 +224,52 @@ else:
 
 random_process = OrnsteinUhlenbeckProcess(size=nb_actions, theta=.15, mu=0., sigma=.1)
 
-## WARNING: make sure memory_interval is 1 for HER to work
+## WARNING: make sure memory_interval is 1 for HER to work 
 agent = DDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, actor1_critic=critic1, actor2_critic=critic2, pretanh_model=pretanh_model , critic_action_input=action_input,
-                  actor1_critic_action_input=action_input1, actor2_critic_action_input=action_input2, learner_memory=memory, actor1_memory=actor1_memory, actor2_memory=actor2_memory,
+                  actor1_critic_action_input=action_input1, actor2_critic_action_input=action_input2, learner_memory=memory, actor1_memory=actor1_memory, actor2_memory=actor2_memory, 
                   nb_steps_warmup_critic=1000, nb_steps_warmup_actor=1000, nb_steps_warmup_actor1=args.actor_warmup_steps, nb_steps_warmup_actor2=args.actor_warmup_steps, batch_size=args.batch_size,
-                  actor_batch_size=args.actor_batch_size, delta_clip=args.delta_clip, random_process=random_process, gamma=args.gamma, target_model_update=args.soft_update,
-                  do_HER=args.HER, K=args.K, HER_strategy=args.her_strategy, do_PER=args.PER, epsilon=1e-4, pretanh_weight=args.pretanh_weight, actors_update_interval=args.actors_update_interval,
+                  actor_batch_size=args.actor_batch_size, delta_clip=args.delta_clip, random_process=random_process, gamma=args.gamma, target_model_update=args.soft_update, 
+                  do_HER=args.HER, K=args.K, HER_strategy=args.her_strategy, do_PER=args.PER, epsilon=1e-4, pretanh_weight=args.pretanh_weight, actors_update_interval=args.actors_update_interval, 
                   prioritised_actors=args.prioritised_actor, actor_processor=MujocoProcessor(), learner_processor=MujocoProcessor())
 agent.compile([Adam(lr=args.actor_lr, clipnorm=args.actor_gradient_clip), Adam(lr=args.critic_lr, clipnorm=args.critic_gradient_clip)], metrics=['mae'])
 
-
 if(args.HER==True and args.PER==False):
-	raise NotImplementedError()
-	print("\nTraining with Distributive Hindsight Experience Replay\n")
-	save_data_path_local = 'HER/'+str(args.prioritised_actor)+'_'+str(args.actor_memory_size)+'_'+str(args.actor_batch_size)+'_'+str(args.alpha_actor1)+'_'+str(args.alpha_actor2)+'_'+str(args.dynamic_actor_exploration)+'.json'
+	print("\nTraining with Hindsight Experience Replay\n")
+	save_data_path_local = 'HER/'+args.ENV_NAME+'.json'
 elif(args.HER==False and args.PER==True):
-	print("\nTraining with Distributive Prioritised Experience Replay\n")
-	save_data_path_local = 'PER/'+str(args.prioritised_actor)+'_'+str(args.actor_memory_size)+'_'+str(args.actor_batch_size)+'_'+str(args.alpha_actor1)+'_'+str(args.alpha_actor2)+'_'+str(args.dynamic_actor_exploration)+'.json'
+	print("\nTraining with Prioritised Experience Replay\n")
+	save_data_path_local = 'PER/'+args.ENV_NAME+'.json'
 elif(args.HER==True and args.PER==True):
-	print("\nTraining with Distributive Prioritised Hindsight Experience Replay\n")
-	save_data_path_local = 'PHER/'+str(args.prioritised_actor)+'_'+str(args.actor_memory_size)+'_'+str(args.actor_batch_size)+'_'+str(args.alpha_actor1)+'_'+str(args.alpha_actor2)+'_'+str(args.dynamic_actor_exploration)+'.json'
+	print("\nTraining with Prioritised Hindsight Experience Replay\n")
+	save_data_path_local = 'PHER/'+args.ENV_NAME+'.json'
 
 if(args.train):
 	""" Start Training (You can always safely abort the training prematurely using Ctrl + C, *once* ) """
-	agent.fit(env, env_1=env_1, nb_steps=args.nb_train_steps, visualize=False, verbose=1, save_data_path=save_data_path_local, file_interval=args.file_interval,
-		nb_max_episode_steps=args.max_step_episode, dynamic_actor_exploration=args.dynamic_actor_exploration, update_exploration_interval=5000)
+	agent.fit(env, env_1=env_1, nb_steps=args.nb_train_steps, visualize=False, verbose=1, save_data_path=save_data_path_local, file_interval=args.file_interval, 
+		nb_max_episode_steps=args.max_step_episode, dynamic_actor_exploration=args.dynamic_actor_exploration, update_exploration_interval=5000)	
 
 # After training is done, we save the final weights and plot the training graph.
 try:
 	if(args.HER==True and args.PER==False):
 		if(args.train):
-			agent.save_weights('HER/{}_weights.h5f'.format(str(args.prioritised_actor)+'_'+str(args.actor_memory_size)+'_'+str(args.actor_batch_size)+'_'+str(args.alpha_actor1)+'_'+str(args.alpha_actor2)+'_'+str(args.dynamic_actor_exploration)), overwrite=True)
-		plot_af(file_path='HER/'+str(args.prioritised_actor)+'_'+str(args.actor_memory_size)+'_'+str(args.actor_batch_size)+'_'+str(args.alpha_actor1)+'_'+str(args.alpha_actor2)+'_'+str(args.dynamic_actor_exploration)+'.json',save_file_name='HER/'+str(args.prioritised_actor)+'_'+str(args.actor_memory_size)+'_'+str(args.actor_batch_size)+'_'+str(args.alpha_actor1)+'_'+str(args.alpha_actor2)+'_'+str(args.dynamic_actor_exploration), plot_what='success')
-		plot_af(file_path='HER/'+str(args.prioritised_actor)+'_'+str(args.actor_memory_size)+'_'+str(args.actor_batch_size)+'_'+str(args.alpha_actor1)+'_'+str(args.alpha_actor2)+'_'+str(args.dynamic_actor_exploration)+'.json',save_file_name='HER/'+str(args.prioritised_actor)+'_'+str(args.actor_memory_size)+'_'+str(args.actor_batch_size)+'_'+str(args.alpha_actor1)+'_'+str(args.alpha_actor2)+'_'+str(args.dynamic_actor_exploration), plot_what='loss')
+			agent.save_weights('HER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
+		plot_af(file_path='HER/'+args.ENV_NAME+'.json',save_file_name='HER/'+args.ENV_NAME+'.png', plot_what='accuracy')
+		plot_af(file_path='HER/'+args.ENV_NAME+'.json',save_file_name='HER/'+args.ENV_NAME+'.png', plot_what='loss')
 	elif(args.HER==False and args.PER==True):
 		if(args.train):
-			agent.save_weights('PER/{}_weights.h5f'.format(str(args.prioritised_actor)+'_'+str(args.actor_memory_size)+'_'+str(args.actor_batch_size)+'_'+str(args.alpha_actor1)+'_'+str(args.alpha_actor2)+'_'+str(args.dynamic_actor_exploration)), overwrite=True)
-		plot_af(file_path='PER/'+str(args.prioritised_actor)+'_'+str(args.actor_memory_size)+'_'+str(args.actor_batch_size)+'_'+str(args.alpha_actor1)+'_'+str(args.alpha_actor2)+'_'+str(args.dynamic_actor_exploration)+'.json',save_file_name='PER/'+str(args.prioritised_actor)+'_'+str(args.actor_memory_size)+'_'+str(args.actor_batch_size)+'_'+str(args.alpha_actor1)+'_'+str(args.alpha_actor2)+'_'+str(args.dynamic_actor_exploration), plot_what='success')
-		plot_af(file_path='PER/'+str(args.prioritised_actor)+'_'+str(args.actor_memory_size)+'_'+str(args.actor_batch_size)+'_'+str(args.alpha_actor1)+'_'+str(args.alpha_actor2)+'_'+str(args.dynamic_actor_exploration)+'.json',save_file_name='PER/'+str(args.prioritised_actor)+'_'+str(args.actor_memory_size)+'_'+str(args.actor_batch_size)+'_'+str(args.alpha_actor1)+'_'+str(args.alpha_actor2)+'_'+str(args.dynamic_actor_exploration), plot_what='loss')
+			agent.save_weights('PER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
+		plot_af(file_path='PER/'+args.ENV_NAME+'.json',save_file_name='PER/'+args.ENV_NAME+'.png')
+		plot_af(file_path='PER/'+args.ENV_NAME+'.json',save_file_name='PER/'+args.ENV_NAME+'.png', plot_what='loss')
 	elif(args.HER==True and args.PER==True):
 		if(args.train):
-			agent.save_weights('PHER/{}_weights.h5f'.format(str(args.prioritised_actor)+'_'+str(args.actor_memory_size)+'_'+str(args.actor_batch_size)+'_'+str(args.alpha_actor1)+'_'+str(args.alpha_actor2)+'_'+str(args.dynamic_actor_exploration)), overwrite=True)
-		plot_af(file_path='PHER/'+str(args.prioritised_actor)+'_'+str(args.actor_memory_size)+'_'+str(args.actor_batch_size)+'_'+str(args.alpha_actor1)+'_'+str(args.alpha_actor2)+'_'+str(args.dynamic_actor_exploration)+'.json',save_file_name='PHER/'+str(args.prioritised_actor)+'_'+str(args.actor_memory_size)+'_'+str(args.actor_batch_size)+'_'+str(args.alpha_actor1)+'_'+str(args.alpha_actor2)+'_'+str(args.dynamic_actor_exploration), plot_what='success')
-		plot_af(file_path='PHER/'+str(args.prioritised_actor)+'_'+str(args.actor_memory_size)+'_'+str(args.actor_batch_size)+'_'+str(args.alpha_actor1)+'_'+str(args.alpha_actor2)+'_'+str(args.dynamic_actor_exploration)+'.json',save_file_name='PHER/'+str(args.prioritised_actor)+'_'+str(args.actor_memory_size)+'_'+str(args.actor_batch_size)+'_'+str(args.alpha_actor1)+'_'+str(args.alpha_actor2)+'_'+str(args.dynamic_actor_exploration), plot_what='loss')
+			agent.save_weights('PHER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
+		plot_af(file_path='PHER/'+args.ENV_NAME+'.json',save_file_name='PHER/'+args.ENV_NAME+'.png')
+		plot_af(file_path='PHER/'+args.ENV_NAME+'.json',save_file_name='PHER/'+args.ENV_NAME+'.png', plot_what='lossr')
 except KeyboardInterrupt:
 	pass
 
 # if(args.train):
 	# Finally, evaluate our algorithm for 5 episodes.
-	# agent.test(env, nb_episodes=args.nb_test_episodes, visualize=True, nb_max_episode_steps=args.max_step_episode)
+	# agent.test(env, nb_episodes=args.nb_test_episodes, visualize=True, nb_max_episode_steps=args.max_step_episode)	
+
+
