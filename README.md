@@ -1,8 +1,3 @@
-# Towards faster convergence in multi-goal, sparse rewards Reinforcement Learning settings
-
-Validation Environment: 'FetchReach-v0' 
-Test Environment: OpenAI Robotics Environments
-
 # Distributive Prioritised Hindsight Experience Replay
 
 # General Hyper-Parameters:
