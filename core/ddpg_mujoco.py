@@ -205,6 +205,6 @@ try:
 except KeyboardInterrupt:
 	pass
 
-# if(args.train):
+# if(args.test):
 	# Finally, evaluate our algorithm for 5 episodes.
 	# agent.test(env, nb_episodes=args.nb_test_episodes, visualize=True, nb_max_episode_steps=args.max_step_episode)
