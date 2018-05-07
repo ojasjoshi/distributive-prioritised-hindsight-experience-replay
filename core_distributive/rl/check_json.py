@@ -14,7 +14,7 @@ def __get__data(file_path=None, print_data=False):
 	assert file_path != None
 
 	data = json.load(open(file_path))
-	print_data = {} # (change to dictionary)
+	print_data = {} 
 
 	epi_success = []
 	epi_loss = []
