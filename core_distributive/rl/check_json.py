@@ -72,7 +72,9 @@ def plot_af(file_path=None,save_file_name='temp_plot.png',plot_what='success'):
 			y = np.asarray(print_data['success_mean'])
 			x = np.asarray(print_data['epoch'])
 			e = np.asarray(print_data['success_std'])
-			plt.errorbar(np.squeeze(x), np.squeeze(y), np.squeeze(e), linestyle='None', marker='^')
+			# plt.errorbar(np.squeeze(x), np.squeeze(y), np.squeeze(e), linestyle='None', marker='^')
+			plt.plot(np.squeeze(x),np.squeeze(y), '-k')
+			plt.fill_between(np.squeeze(x), np.squeeze(y) - np.squeeze(e), np.squeeze(y) + np.squeeze(e), color='blue', alpha=0.4)
 		elif(plot_what=='loss'):
 			print("Plotting loss...")
 			y = np.asarray(print_data['loss_mean'])

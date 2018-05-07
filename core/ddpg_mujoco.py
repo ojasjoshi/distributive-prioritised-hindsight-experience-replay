@@ -46,7 +46,7 @@ class MujocoProcessor(WhiteningNormalizerProcessor):
 def parse_arguments():
 	parser = argparse.ArgumentParser()
 	""" WARNING: With env, change ddpg.py/add_HER function accordingly """
-	parser.add_argument('--env', dest='ENV_NAME',type=str, default='FetchPush-v0',help="Environment Name")
+	parser.add_argument('--env', dest='ENV_NAME',type=str, default='FetchReach-v0',help="Environment Name")
 	parser.add_argument('--her', dest='HER', action='store_true', help="Do Hindsight Experience Replay")
 	parser.add_argument('--no-her', dest='HER', action='store_false', help="Do not do Hindsight Experience Replay")
 	parser.set_defaults(HER=True)
@@ -190,21 +190,21 @@ try:
 	if(args.HER==True and args.PER==False):
 		if(args.train):
 			agent.save_weights('HER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
-		plot_af(file_path='HER/'+args.ENV_NAME+'.json',save_file_name='HER/'+args.ENV_NAME+'.png',plot_what='success')
-		plot_af(file_path='HER/'+args.ENV_NAME+'.json',save_file_name='HER/'+args.ENV_NAME+'_loss.png',plot_what='loss')
+		plot_af(file_path='HER/'+args.ENV_NAME+'.json',save_file_name='HER/'+args.ENV_NAME,plot_what='success')
+		plot_af(file_path='HER/'+args.ENV_NAME+'.json',save_file_name='HER/'+args.ENV_NAME,plot_what='loss')
 	elif(args.HER==False and args.PER==True):
 		if(args.train):
 			agent.save_weights('PER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
-		plot_af(file_path='PER/'+args.ENV_NAME+'.json',save_file_name='PER/'+args.ENV_NAME+'.png',plot_what='success')
-		plot_af(file_path='PER/'+args.ENV_NAME+'.json',save_file_name='PER/'+args.ENV_NAME+'_loss.png',plot_what='loss')
+		plot_af(file_path='PER/'+args.ENV_NAME+'.json',save_file_name='PER/'+args.ENV_NAME,plot_what='success')
+		plot_af(file_path='PER/'+args.ENV_NAME+'.json',save_file_name='PER/'+args.ENV_NAME,plot_what='loss')
 	elif(args.HER==True and args.PER==True):
 		if(args.train):
 			agent.save_weights('PHER/ddpg_{}_weights.h5f'.format(args.ENV_NAME), overwrite=True)
-		plot_af(file_path='PHER/'+args.ENV_NAME+'.json',save_file_name='PHER/'+args.ENV_NAME+'_success.png',plot_what='success')
-		plot_af(file_path='PHER/'+args.ENV_NAME+'.json',save_file_name='PHER/'+args.ENV_NAME+'_loss.png',plot_what='loss')
+		plot_af(file_path='PHER/'+args.ENV_NAME+'.json',save_file_name='PHER/'+args.ENV_NAME,plot_what='success')
+		plot_af(file_path='PHER/'+args.ENV_NAME+'.json',save_file_name='PHER/'+args.ENV_NAME,plot_what='loss')
 except KeyboardInterrupt:
 	pass
 
-if(args.train):
+# if(args.train):
 	# Finally, evaluate our algorithm for 5 episodes.
-	agent.test(env, nb_episodes=args.nb_test_episodes, visualize=True, nb_max_episode_steps=args.max_step_episode)
+	# agent.test(env, nb_episodes=args.nb_test_episodes, visualize=True, nb_max_episode_steps=args.max_step_episode)

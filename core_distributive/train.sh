@@ -1,10 +1,10 @@
 #!/bin/bash
-source ~/a-tensorflow/bin/activate
+source ~/tensorflow/bin/activate
 # deactivate
 
 # ## if training distributive
 ## 1
-# python ddpg_mujoco.py --env FetchReach-v1 --her --no-per --k 4 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001 --actor_batch_size 2 --prioritised_actor --actor_memory_size 10000 --actor_warmup_steps 1000 --alpha_actor1 0.7 --beta_actor1 0.5 --alpha_actor2 0.7 --beta_actor2 0.5
+python ddpg_mujoco.py --env FetchReach-v0 --her --no-per --k 4 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001 --actor_batch_size 2 --prioritised_actor --actor_memory_size 10000 --actor_warmup_steps 1000 --alpha_actor1 0.7 --beta_actor1 0.5 --alpha_actor2 0.7 --beta_actor2 0.5
 
 ## 2
 # python ddpg_mujoco.py --env FetchReach-v1 --her --no-per --k 4 --her_strategy future --batch_size 128 --memory_size 100000 --train --gamma 0.98 --actor_lr 0.001 --critic_lr 0.001 --soft_target_update 0.001 --actor_batch_size 8 --prioritised_actor --actor_memory_size 10000 --actor_warmup_steps 1000 --alpha_actor1 0.7 --beta_actor1 0.5 --alpha_actor2 0.7 --beta_actor2 0.5
