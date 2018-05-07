@@ -28,6 +28,12 @@ Test Environment: OpenAI Robotics Environments
 - beta = float between 0 to 1
 - epsilon = very small (edge case for sampling)
 
+# Distributive PHER
+- actor batch size
+- actor memory size
+- actor memory prioritisation (alpha)
+- actor bias annealing (beta)
+
 Instructions:
 
 General:
